@@ -79,10 +79,11 @@ internal class TrieNode<K, V>(val dataMap: Int,
         return TrieNode(dataMap or position, nodeMap, newBuffer)
     }
 
-    private fun updateDataAt(position: Int, value: V): TrieNode<K, V> {
+    private fun updateValueAt(position: Int, value: V): TrieNode<K, V> {
 //        assert(hasDataAt(position))
 
         val keyIndex = keyDataIndex(position)
+//        assert(buffer[keyIndex + 1] !== value)
         val newBuffer = buffer.copyOf()
         newBuffer[keyIndex + 1] = value
         return TrieNode(dataMap, nodeMap, newBuffer)
@@ -92,6 +93,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
 //        assert(hasNodeAt(position))
 
         val nodeIndex = keyNodeIndex(position)
+//        assert(buffer[nodeIndex] !== newNode)
         val newBuffer = buffer.copyOf()
         newBuffer[nodeIndex] = newNode
         return TrieNode(dataMap, nodeMap, newBuffer)
@@ -225,8 +227,9 @@ internal class TrieNode<K, V>(val dataMap: Int,
         if (hasDataAt(keyPosition)) { // key is directly in buffer
             val oldKey = keyAt<K>(keyPosition)!!
             if (key == oldKey) {
+                if (valueAt<V>(keyPosition) === value) { return this }
                 modification.value = UPDATE_VALUE
-                return updateDataAt(keyPosition, value)
+                return updateValueAt(keyPosition, value)
             }
             modification.value = PUT_KEY_VALUE
             val oldKeyHash = oldKey.hashCode()
