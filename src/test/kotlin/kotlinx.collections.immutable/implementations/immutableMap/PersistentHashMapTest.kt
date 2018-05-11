@@ -230,12 +230,12 @@ class PersistentHashMapTest {
         assertEquals(2, map.put(KeyWrapper(1, 1), 1).put(KeyWrapper(1, 1), 2)[KeyWrapper(1, 1)])
 
         repeat(times = 2) { removeEntryPredicate ->
-            val keyGen = KeyGenerator<Int>(10000)
+            val keyGen = KeyGenerator<Int>(20000)
             fun key(key: Int): KeyWrapper<Int> {
                 return keyGen.key(key)
             }
 
-            val elementsToAdd = 50000   /// should be more than keyGen.hashCodeUpperBound
+            val elementsToAdd = 100000   /// should be more than keyGen.hashCodeUpperBound
             repeat(times = elementsToAdd) { index ->
                 map = map.put(key(index), Int.MIN_VALUE)
                 assertEquals(Int.MIN_VALUE, map[key(index)])

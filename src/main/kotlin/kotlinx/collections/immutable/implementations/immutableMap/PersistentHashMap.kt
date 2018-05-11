@@ -68,7 +68,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
     }
 
     private fun putDataAt(position: Int, key: K, value: V): TrieNode<K, V> {
-        assert(!hasDataAt(position))
+//        assert(!hasDataAt(position))
 
         val keyIndex = keyDataIndex(position)
         val newBuffer = arrayOfNulls<Any?>(buffer.size + 2)
@@ -80,7 +80,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
     }
 
     private fun updateDataAt(position: Int, value: V): TrieNode<K, V> {
-        assert(hasDataAt(position))
+//        assert(hasDataAt(position))
 
         val keyIndex = keyDataIndex(position)
         val newBuffer = buffer.copyOf()
@@ -89,7 +89,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
     }
 
     private fun updateNodeAt(position: Int, newNode: TrieNode<K, V>): TrieNode<K, V> {
-        assert(hasNodeAt(position))
+//        assert(hasNodeAt(position))
 
         val nodeIndex = keyNodeIndex(position)
         val newBuffer = buffer.copyOf()
@@ -99,8 +99,8 @@ internal class TrieNode<K, V>(val dataMap: Int,
 
     private fun moveDataToNode(position: Int, oldKeyHash: Int, newKeyHash: Int,
                                newKey: K, newValue: V, shift: Int): TrieNode<K, V> {
-        assert(hasDataAt(position))
-        assert(!hasNodeAt(position))
+//        assert(hasDataAt(position))
+//        assert(!hasNodeAt(position))
 
         val keyIndex = keyDataIndex(position)
         val nodeIndex = keyNodeIndex(position) - 1
@@ -116,7 +116,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
 
     private fun makeNode(keyHash1: Int, key1: K, value1: V, keyHash2: Int, key2: K, value2: V, shift: Int): TrieNode<K, V> {
         if (shift > MAX_SHIFT) {
-            assert(key1 != key2)
+//            assert(key1 != key2)
             return TrieNode(0, 0, arrayOf(key1, value1, key2, value2))
         }
 
@@ -135,7 +135,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
     }
 
     private fun removeDataAt(position: Int): TrieNode<K, V> {
-        assert(hasDataAt(position))
+//        assert(hasDataAt(position))
 
         val keyIndex = keyDataIndex(position)
         val newBuffer = arrayOfNulls<Any?>(buffer.size - 2)
@@ -239,6 +239,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
             } else {
                 targetNode.put(keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR, modification)
             }
+            if (targetNode === newNode) { return this }
             return updateNodeAt(keyPosition, newNode)
         }
 
@@ -265,6 +266,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
             } else {
                 targetNode.remove(keyHash, key, shift + LOG_MAX_BRANCHING_FACTOR, modification)
             }
+            if (targetNode === newNode) { return this }
             return updateNodeAt(keyPosition, newNode)
         }
 
@@ -291,6 +293,7 @@ internal class TrieNode<K, V>(val dataMap: Int,
             } else {
                 targetNode.remove(keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR, modification)
             }
+            if (targetNode === newNode) { return this }
             return updateNodeAt(keyPosition, newNode)
         }
 
@@ -359,6 +362,14 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         val keyHash = key.hashCode()
         val modification = ModificationWrapper()
         val newNode = node.put(keyHash, key, value, 0, modification)
+
+//        if (node === newNode) {
+//            assert(modification.value == NO_MODIFICATION)
+//        } else {
+//            assert(modification.value != NO_MODIFICATION)
+//        }
+
+        if (node === newNode) { return this }
         val sizeDelta = if (modification.value == PUT_KEY_VALUE) 1 else 0
         return PersistentHashMap(newNode, size + sizeDelta)
     }
@@ -371,6 +382,14 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         val keyHash = key.hashCode()
         val modification = ModificationWrapper()
         val newNode = node.remove(keyHash, key, 0, modification)
+
+//        if (node === newNode) {
+//            assert(modification.value == NO_MODIFICATION)
+//        } else {
+//            assert(modification.value != NO_MODIFICATION)
+//        }
+
+        if (node === newNode) { return this }
         val sizeDelta = if (modification.value == REMOVE_KEY_VALUE) -1 else 0
         return PersistentHashMap(newNode, size + sizeDelta)
     }
@@ -383,6 +402,14 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         val keyHash = key.hashCode()
         val modification = ModificationWrapper()
         val newNode = node.remove(keyHash, key, value, 0, modification)
+
+//        if (node === newNode) {
+//            assert(modification.value == NO_MODIFICATION)
+//        } else {
+//            assert(modification.value != NO_MODIFICATION)
+//        }
+
+        if (node === newNode) { return this }
         val sizeDelta = if (modification.value == REMOVE_KEY_VALUE) -1 else 0
         return PersistentHashMap(newNode, size + sizeDelta)
     }
