@@ -6,7 +6,7 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
     private var hasNext = true
 
     init {
-        path[0].reset(node)
+        path[0].reset(node.buffer, 2 * Integer.bitCount(node.dataMap))
         pathLastIndex = 0
         ensureNextEntryIsReady()
     }
@@ -16,7 +16,12 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
             return pathIndex
         }
         while (path[pathIndex].hashNextNode()) { // requires canonicalization (if)
-            path[pathIndex + 1].reset(path[pathIndex].currentNode())
+            val node = path[pathIndex].currentNode()
+            if (pathIndex == 6) {
+                path[pathIndex + 1].reset(node.buffer, node.buffer.size)
+            } else {
+                path[pathIndex + 1].reset(node.buffer, 2 * Integer.bitCount(node.dataMap))
+            }
             val result = moveToNextNodeWithData(pathIndex + 1)
             if (result != -1) {
                 return result
@@ -78,10 +83,10 @@ internal class TrieNodeIterator<out K, out V> {
     private var dataSize = 0
     private var index = 0
 
-    fun reset(node: TrieNode<*, *>) {
-        buffer = node.buffer
-        index = 0
-        dataSize = 2 * Integer.bitCount(node.dataMap)
+    fun reset(buffer: Array<Any?>, dataSize: Int) {
+        this.buffer = buffer
+        this.dataSize = dataSize
+        this.index = 0
     }
 
     fun hashNextEntry(): Boolean {

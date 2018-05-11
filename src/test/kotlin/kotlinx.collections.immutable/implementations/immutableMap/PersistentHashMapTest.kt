@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 import java.util.*
 
 
-class Wrapper<out K>(val key: K, val hashCode: Int) {
+class Wrapper<K: Comparable<K>>(val key: K, val hashCode: Int) : Comparable<Wrapper<K>> {
     override fun hashCode(): Int {
         return hashCode
     }
@@ -33,10 +33,14 @@ class Wrapper<out K>(val key: K, val hashCode: Int) {
         assert(key != other.key || hashCode == other.hashCode)  // if keys are equal hashCodes must be equal
         return key == other.key
     }
+
+    override fun compareTo(other: Wrapper<K>): Int {
+        return key.compareTo(other.key)
+    }
 }
 
 
-class KeyGenerator<K>(private val hashCodeUpperBound: Int) {
+class KeyGenerator<K: Comparable<K>>(private val hashCodeUpperBound: Int) {
     private val keyMap = hashMapOf<K, Wrapper<K>>()
     private val hashCodeMap = hashMapOf<Int, MutableList<Wrapper<K>>>()
     private val random = Random()
@@ -305,16 +309,16 @@ class PersistentHashMapTest {
             val mutableMaps = List(10) { mutableMapOf<Wrapper<Int>, Int>() }
             val immutableMaps = MutableList(10) { persistentHashMapOf<Wrapper<Int>, Int>() }
 
-            val operationCount = 1000000
-            val keyGen = KeyGenerator<Int>(Int.MAX_VALUE)
-            val keys = List(operationCount / 2) { keyGen.key(random.nextInt()) }
+            val operationCount = 2000000
+            val hashCodes = List(operationCount / 2) { random.nextInt() }
             repeat(times = operationCount) {
                 val index = random.nextInt(mutableMaps.size)
                 val mutableMap = mutableMaps[index]
                 val immutableMap = immutableMaps[index]
 
                 val operationType = random.nextDouble()
-                val key = keys[random.nextInt(keys.size)]
+                val hashCodeIndexIndex = random.nextInt(hashCodes.size)
+                val key = Wrapper(random.nextInt(), hashCodes[hashCodeIndexIndex])
 
                 val shouldRemove = operationType < 0.2
                 val shouldRemoveEntry = !shouldRemove && operationType < 0.4
