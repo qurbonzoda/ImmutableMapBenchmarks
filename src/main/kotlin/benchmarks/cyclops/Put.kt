@@ -1,11 +1,11 @@
-package benchmarks.persistentHashMap
+package benchmarks.cyclops
 
 import benchmarks.*
-import kotlinx.collections.immutable.ImmutableMap
+import com.aol.cyclops.clojure.collections.ClojureHashPMap
 import kotlinx.collections.immutable.implementations.immutableMap.KeyWrapper
-import kotlinx.collections.immutable.implementations.immutableMap.persistentHashMapOf
 import org.openjdk.jmh.annotations.*
 import org.openjdk.jmh.infra.Blackhole
+import org.pcollections.PMap
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -20,10 +20,11 @@ open class Put {
             BM_100, BM_1000, BM_10000, BM_100000, BM_1000000)
     var listSize: Int = 0
 
-    @Param("persistentHashMap")
+    @Param(CLOJURE_HASH_MAP, SCALA_HASH_MAP, SCALA_TREE_MAP,
+            JAVASLANG_HASH_MAP, JAVASLANG_TREE_MAP, PCOLLECTIONS)
     var implementation = ""
 
-    private val emptyMap: ImmutableMap<KeyWrapper<Int>, String> = persistentHashMapOf()
+    private var emptyMap: PMap<KeyWrapper<Int>, String> = ClojureHashPMap.empty()
     private val random = Random()
 
     private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
@@ -32,6 +33,8 @@ open class Put {
 
     @Setup(Level.Trial)
     fun prepare() {
+        emptyMap = emptyPMap(implementation)
+
         distinctKeys.clear()
         randomKeys.clear()
         collisionKeys.clear()
@@ -43,37 +46,37 @@ open class Put {
     }
 
     @Benchmark
-    fun putDistinct(): ImmutableMap<KeyWrapper<Int>, String> {
+    fun putDistinct(): PMap<KeyWrapper<Int>, String> {
         var map = this.emptyMap
         repeat(times = this.listSize) { index ->
-            map = map.put(distinctKeys[index], "some element")
+            map = map.plus(distinctKeys[index], "some element")
         }
         return map
     }
 
     @Benchmark
-    fun putRandom(): ImmutableMap<KeyWrapper<Int>, String> {
+    fun putRandom(): PMap<KeyWrapper<Int>, String> {
         var map = this.emptyMap
         repeat(times = this.listSize) { index ->
-            map = map.put(randomKeys[index], "some element")
+            map = map.plus(randomKeys[index], "some element")
         }
         return map
     }
 
     @Benchmark
-    fun putCollision(): ImmutableMap<KeyWrapper<Int>, String> {
+    fun putCollision(): PMap<KeyWrapper<Int>, String> {
         var map = this.emptyMap
         repeat(times = this.listSize) { index ->
-            map = map.put(collisionKeys[index], "some element")
+            map = map.plus(collisionKeys[index], "some element")
         }
         return map
     }
 
     @Benchmark
-    fun putAndGetDistinct(bh: Blackhole): ImmutableMap<KeyWrapper<Int>, String> {
+    fun putAndGetDistinct(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
         var map = this.emptyMap
         repeat(times = this.listSize) { index ->
-            map = map.put(distinctKeys[index], "some element")
+            map = map.plus(distinctKeys[index], "some element")
         }
         repeat(times = this.listSize) { index ->
             bh.consume(map[distinctKeys[index]])
@@ -82,10 +85,10 @@ open class Put {
     }
 
     @Benchmark
-    fun putAndGetRandom(bh: Blackhole): ImmutableMap<KeyWrapper<Int>, String> {
+    fun putAndGetRandom(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
         var map = this.emptyMap
         repeat(times = this.listSize) { index ->
-            map = map.put(randomKeys[index], "some element")
+            map = map.plus(randomKeys[index], "some element")
         }
         repeat(times = this.listSize) { index ->
             bh.consume(map[randomKeys[index]])
@@ -94,10 +97,10 @@ open class Put {
     }
 
     @Benchmark
-    fun putAndGetCollision(bh: Blackhole): ImmutableMap<KeyWrapper<Int>, String> {
+    fun putAndGetCollision(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
         var map = this.emptyMap
         repeat(times = this.listSize) { index ->
-            map = map.put(collisionKeys[index], "some element")
+            map = map.plus(collisionKeys[index], "some element")
         }
         repeat(times = this.listSize) { index ->
             bh.consume(map[collisionKeys[index]])
@@ -105,3 +108,4 @@ open class Put {
         return map
     }
 }
+

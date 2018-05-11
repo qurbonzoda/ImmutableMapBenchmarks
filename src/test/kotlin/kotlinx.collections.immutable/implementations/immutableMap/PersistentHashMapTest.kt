@@ -21,37 +21,18 @@ import org.junit.jupiter.api.Test
 import java.util.*
 
 
-class Wrapper<K: Comparable<K>>(val key: K, val hashCode: Int) : Comparable<Wrapper<K>> {
-    override fun hashCode(): Int {
-        return hashCode
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (other !is Wrapper<*>) {
-            return false
-        }
-        assert(key != other.key || hashCode == other.hashCode)  // if keys are equal hashCodes must be equal
-        return key == other.key
-    }
-
-    override fun compareTo(other: Wrapper<K>): Int {
-        return key.compareTo(other.key)
-    }
-}
-
-
 class KeyGenerator<K: Comparable<K>>(private val hashCodeUpperBound: Int) {
-    private val keyMap = hashMapOf<K, Wrapper<K>>()
-    private val hashCodeMap = hashMapOf<Int, MutableList<Wrapper<K>>>()
+    private val keyMap = hashMapOf<K, KeyWrapper<K>>()
+    private val hashCodeMap = hashMapOf<Int, MutableList<KeyWrapper<K>>>()
     private val random = Random()
 
-    fun key(key: K): Wrapper<K> {
+    fun key(key: K): KeyWrapper<K> {
         val existing = keyMap[key]
         if (existing != null) {
             return existing
         }
         val hashCode = random.nextInt(hashCodeUpperBound)
-        val wrapper = Wrapper(key, hashCode)
+        val wrapper = KeyWrapper(key, hashCode)
         keyMap[key] = wrapper
 
         val wrappers = hashCodeMap.getOrDefault(hashCode, mutableListOf())
@@ -61,7 +42,7 @@ class KeyGenerator<K: Comparable<K>>(private val hashCodeUpperBound: Int) {
         return wrapper
     }
 
-    fun wrappersByHashCode(hashCode: Int): List<Wrapper<K>> {
+    fun wrappersByHashCode(hashCode: Int): List<KeyWrapper<K>> {
         return hashCodeMap.getOrDefault(hashCode, mutableListOf())
     }
 }
@@ -244,13 +225,13 @@ class PersistentHashMapTest {
 
     @Test
     fun collisionTests() {
-        var map = persistentHashMapOf<Wrapper<Int>, Int>()
+        var map = persistentHashMapOf<KeyWrapper<Int>, Int>()
 
-        assertEquals(2, map.put(Wrapper(1, 1), 1).put(Wrapper(1, 1), 2)[Wrapper(1, 1)])
+        assertEquals(2, map.put(KeyWrapper(1, 1), 1).put(KeyWrapper(1, 1), 2)[KeyWrapper(1, 1)])
 
         repeat(times = 2) { removeEntryPredicate ->
             val keyGen = KeyGenerator<Int>(10000)
-            fun key(key: Int): Wrapper<Int> {
+            fun key(key: Int): KeyWrapper<Int> {
                 return keyGen.key(key)
             }
 
@@ -288,7 +269,7 @@ class PersistentHashMapTest {
 
                             map.remove(key, key.key)
                         } else {
-                            val sameMap = map.remove(Wrapper(Int.MIN_VALUE, key.hashCode))
+                            val sameMap = map.remove(KeyWrapper(Int.MIN_VALUE, key.hashCode))
                             assertEquals(map.size, sameMap.size)
                             assertEquals(key.key, sameMap[key])
 
@@ -306,8 +287,8 @@ class PersistentHashMapTest {
         repeat(times = 1) {
 
             val random = Random()
-            val mutableMaps = List(10) { mutableMapOf<Wrapper<Int>, Int>() }
-            val immutableMaps = MutableList(10) { persistentHashMapOf<Wrapper<Int>, Int>() }
+            val mutableMaps = List(10) { mutableMapOf<KeyWrapper<Int>, Int>() }
+            val immutableMaps = MutableList(10) { persistentHashMapOf<KeyWrapper<Int>, Int>() }
 
             val operationCount = 2000000
             val hashCodes = List(operationCount / 2) { random.nextInt() }
@@ -318,7 +299,7 @@ class PersistentHashMapTest {
 
                 val operationType = random.nextDouble()
                 val hashCodeIndexIndex = random.nextInt(hashCodes.size)
-                val key = Wrapper(random.nextInt(), hashCodes[hashCodeIndexIndex])
+                val key = KeyWrapper(random.nextInt(), hashCodes[hashCodeIndexIndex])
 
                 val shouldRemove = operationType < 0.2
                 val shouldRemoveEntry = !shouldRemove && operationType < 0.4

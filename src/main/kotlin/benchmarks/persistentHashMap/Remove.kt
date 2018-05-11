@@ -2,9 +2,9 @@ package benchmarks.persistentHashMap
 
 import benchmarks.*
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.implementations.immutableMap.KeyWrapper
 import kotlinx.collections.immutable.implementations.immutableMap.persistentHashMapOf
 import org.openjdk.jmh.annotations.*
-import org.openjdk.jmh.infra.Blackhole
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -19,48 +19,47 @@ open class Remove {
             BM_100, BM_1000, BM_10000, BM_100000, BM_1000000)
     var listSize: Int = 0
 
-    private val emptyMap = persistentHashMapOf<Int, String>()
+    @Param("persistentHashMap")
+    var implementation = ""
+
+    private val emptyMap = persistentHashMapOf<KeyWrapper<Int>, String>()
     private val random = Random()
 
-    private val distinctKeys = mutableListOf<Int>()
-    private val randomKeys = mutableListOf<Int>()
-    private val collisionKeys = mutableListOf<Int>()
+    private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
+    private val randomKeys = mutableListOf<KeyWrapper<Int>>()
+    private val collisionKeys = mutableListOf<KeyWrapper<Int>>()
 
-    private val values = mutableListOf<String>()
+    private val anotherRandomKeys = mutableListOf<KeyWrapper<Int>>()
 
-    private val anotherRandomKeys = mutableListOf<Int>()
-
-    private var distinctKeysMap = persistentHashMapOf<Int, String>()
-    private var randomKeysMap = persistentHashMapOf<Int, String>()
-    private var collisionKeysMap = persistentHashMapOf<Int, String>()
+    private var distinctKeysMap = persistentHashMapOf<KeyWrapper<Int>, String>()
+    private var randomKeysMap = persistentHashMapOf<KeyWrapper<Int>, String>()
+    private var collisionKeysMap = persistentHashMapOf<KeyWrapper<Int>, String>()
 
     @Setup(Level.Trial)
     fun prepare() {
         distinctKeys.clear()
         randomKeys.clear()
         collisionKeys.clear()
-        values.clear()
         anotherRandomKeys.clear()
-        repeat(times = this.listSize) { index ->
-            distinctKeys.add(index)
-            randomKeys.add(random.nextInt())
-            anotherRandomKeys.add(random.nextInt())
-            collisionKeys.add(random.nextInt((this.listSize + 1) / 2))
-            values.add("some element" + random.nextInt(3))
+        repeat(times = listSize) { index ->
+            distinctKeys.add(KeyWrapper(index, index))
+            randomKeys.add(KeyWrapper(index, random.nextInt()))
+            collisionKeys.add(KeyWrapper(index, random.nextInt((listSize + 1) / 2)))
+            anotherRandomKeys.add(KeyWrapper(random.nextInt(), random.nextInt()))
         }
 
         distinctKeysMap = this.emptyMap
         randomKeysMap = this.emptyMap
         collisionKeysMap = this.emptyMap
         repeat(times = this.listSize) { index ->
-            distinctKeysMap = distinctKeysMap.put(distinctKeys[index], values[index])
-            randomKeysMap = randomKeysMap.put(randomKeys[index], values[index])
-            collisionKeysMap = collisionKeysMap.put(collisionKeys[index], values[index])
+            distinctKeysMap = distinctKeysMap.put(distinctKeys[index], "some element")
+            randomKeysMap = randomKeysMap.put(randomKeys[index], "some element")
+            collisionKeysMap = collisionKeysMap.put(collisionKeys[index], "some element")
         }
     }
 
     @Benchmark
-    fun removeDistinct(): ImmutableMap<Int, String> {
+    fun removeDistinct(): ImmutableMap<KeyWrapper<Int>, String> {
         var map = distinctKeysMap
         repeat(times = this.listSize) { index ->
             map = map.remove(distinctKeys[index])
@@ -69,7 +68,7 @@ open class Remove {
     }
 
     @Benchmark
-    fun removeRandom(): ImmutableMap<Int, String> {
+    fun removeRandom(): ImmutableMap<KeyWrapper<Int>, String> {
         var map = randomKeysMap
         repeat(times = this.listSize) { index ->
             map = map.remove(randomKeys[index])
@@ -78,7 +77,7 @@ open class Remove {
     }
 
     @Benchmark
-    fun removeCollision(): ImmutableMap<Int, String> {
+    fun removeCollision(): ImmutableMap<KeyWrapper<Int>, String> {
         var map = collisionKeysMap
         repeat(times = this.listSize) { index ->
             map = map.remove(collisionKeys[index])
@@ -87,7 +86,7 @@ open class Remove {
     }
 
     @Benchmark
-    fun removeNonExisting(bh: Blackhole): ImmutableMap<Int, String> {
+    fun removeNonExisting(): ImmutableMap<KeyWrapper<Int>, String> {
         var map = randomKeysMap
         repeat(times = this.listSize) { index ->
             map = map.remove(anotherRandomKeys[index])

@@ -1,11 +1,11 @@
-package benchmarks.persistentHashMap
+package benchmarks.cyclops
 
 import benchmarks.*
-import kotlinx.collections.immutable.ImmutableMap
+import com.aol.cyclops.clojure.collections.ClojureHashPMap
 import kotlinx.collections.immutable.implementations.immutableMap.KeyWrapper
-import kotlinx.collections.immutable.implementations.immutableMap.persistentHashMapOf
 import org.openjdk.jmh.annotations.*
 import org.openjdk.jmh.infra.Blackhole
+import org.pcollections.PMap
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -20,10 +20,10 @@ open class Get {
             BM_100, BM_1000, BM_10000, BM_100000, BM_1000000)
     var listSize: Int = 0
 
-    @Param("persistentHashMap")
+    @Param(CLOJURE_HASH_MAP, SCALA_HASH_MAP, SCALA_TREE_MAP,
+            JAVASLANG_HASH_MAP, JAVASLANG_TREE_MAP, PCOLLECTIONS)
     var implementation = ""
 
-    private val emptyMap = persistentHashMapOf<KeyWrapper<Int>, String>()
     private val random = Random()
 
     private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
@@ -32,9 +32,9 @@ open class Get {
 
     private val anotherRandomKeys = mutableListOf<KeyWrapper<Int>>()
 
-    private var distinctKeysMap = persistentHashMapOf<KeyWrapper<Int>, String>()
-    private var randomKeysMap = persistentHashMapOf<KeyWrapper<Int>, String>()
-    private var collisionKeysMap = persistentHashMapOf<KeyWrapper<Int>, String>()
+    private var distinctKeysMap: PMap<KeyWrapper<Int>, String> = ClojureHashPMap.empty()
+    private var randomKeysMap: PMap<KeyWrapper<Int>, String> = ClojureHashPMap.empty()
+    private var collisionKeysMap: PMap<KeyWrapper<Int>, String> = ClojureHashPMap.empty()
 
     @Setup(Level.Trial)
     fun prepare() {
@@ -42,25 +42,26 @@ open class Get {
         randomKeys.clear()
         collisionKeys.clear()
         anotherRandomKeys.clear()
-        repeat(times = this.listSize) { index ->
+        repeat(times = listSize) { index ->
             distinctKeys.add(KeyWrapper(index, index))
             randomKeys.add(KeyWrapper(index, random.nextInt()))
             collisionKeys.add(KeyWrapper(index, random.nextInt((listSize + 1) / 2)))
             anotherRandomKeys.add(KeyWrapper(random.nextInt(), random.nextInt()))
         }
 
-        distinctKeysMap = this.emptyMap
-        randomKeysMap = this.emptyMap
-        collisionKeysMap = this.emptyMap
+        val emptyMap = emptyPMap<KeyWrapper<Int>, String>(implementation)
+        distinctKeysMap = emptyMap
+        randomKeysMap = emptyMap
+        collisionKeysMap = emptyMap
         repeat(times = this.listSize) { index ->
-            distinctKeysMap = distinctKeysMap.put(distinctKeys[index], "some element")
-            randomKeysMap = randomKeysMap.put(randomKeys[index], "some element")
-            collisionKeysMap = collisionKeysMap.put(collisionKeys[index], "some element")
+            distinctKeysMap = distinctKeysMap.plus(distinctKeys[index], "some element")
+            randomKeysMap = randomKeysMap.plus(randomKeys[index], "some element")
+            collisionKeysMap = collisionKeysMap.plus(collisionKeys[index], "some element")
         }
     }
 
     @Benchmark
-    fun getDistinct(bh: Blackhole): ImmutableMap<KeyWrapper<Int>, String> {
+    fun getDistinct(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
         val map = distinctKeysMap
         repeat(times = this.listSize) { index ->
             bh.consume(map[distinctKeys[index]])
@@ -69,7 +70,7 @@ open class Get {
     }
 
     @Benchmark
-    fun getRandom(bh: Blackhole): ImmutableMap<KeyWrapper<Int>, String> {
+    fun getRandom(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
         val map = randomKeysMap
         repeat(times = this.listSize) { index ->
             bh.consume(map[randomKeys[index]])
@@ -78,7 +79,7 @@ open class Get {
     }
 
     @Benchmark
-    fun getCollision(bh: Blackhole): ImmutableMap<KeyWrapper<Int>, String> {
+    fun getCollision(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
         val map = collisionKeysMap
         repeat(times = this.listSize) { index ->
             bh.consume(map[collisionKeys[index]])
@@ -87,7 +88,7 @@ open class Get {
     }
 
     @Benchmark
-    fun getNonExisting(bh: Blackhole): ImmutableMap<KeyWrapper<Int>, String> {
+    fun getNonExisting(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
         val map = randomKeysMap
         repeat(times = this.listSize) { index ->
             bh.consume(map[anotherRandomKeys[index]])
