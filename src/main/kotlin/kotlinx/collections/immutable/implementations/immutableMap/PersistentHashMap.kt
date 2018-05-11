@@ -25,6 +25,14 @@ const val MAX_BRANCHING_FACTOR_MINUS_ONE = MAX_BRANCHING_FACTOR - 1
 const val ENTRY_SIZE = 2
 const val MAX_SHIFT = 30
 
+
+const val NO_MODIFICATION = 0
+const val UPDATE_VALUE = 1
+const val PUT_KEY_VALUE = 2
+const val REMOVE_KEY_VALUE = 4
+internal class ModificationWrapper(var value: Int = NO_MODIFICATION)
+
+
 internal class TrieNode<K, V>(val dataMap: Int,
                               val nodeMap: Int,
                               val buffer: Array<Any?>) {
@@ -143,17 +151,19 @@ internal class TrieNode<K, V>(val dataMap: Int,
         return null
     }
 
-    private fun collisionPut(key: K, value: V): TrieNode<K, V> {
+    private fun collisionPut(key: K, value: V, modification: ModificationWrapper): TrieNode<K, V> {
         for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) {
                 if (value === buffer[i + 1]) {
                     return this
                 }
+                modification.value = UPDATE_VALUE
                 val newBuffer = buffer.copyOf()
                 newBuffer[i + 1] = value
                 return TrieNode(0, 0, newBuffer)
             }
         }
+        modification.value = PUT_KEY_VALUE
         val newBuffer = arrayOfNulls<Any?>(buffer.size + 2)
         System.arraycopy(buffer, 0, newBuffer, 2, buffer.size)
         newBuffer[0] = key
@@ -161,9 +171,10 @@ internal class TrieNode<K, V>(val dataMap: Int,
         return TrieNode(0, 0, newBuffer)
     }
 
-    private fun collisionRemove(key: K): TrieNode<K, V> {
+    private fun collisionRemove(key: K, modification: ModificationWrapper): TrieNode<K, V> {
         for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) {
+                modification.value = REMOVE_KEY_VALUE
                 val newBuffer = arrayOfNulls<Any?>(buffer.size - 2)
                 System.arraycopy(buffer, 0, newBuffer, 0, i)
                 System.arraycopy(buffer, i + 2, newBuffer, i, buffer.size - i - 2)
@@ -173,9 +184,10 @@ internal class TrieNode<K, V>(val dataMap: Int,
         return this
     }
 
-    private fun collisionRemove(key: K, value: V): TrieNode<K, V> {
+    private fun collisionRemove(key: K, value: V, modification: ModificationWrapper): TrieNode<K, V> {
         for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i] && value == buffer[i + 1]) {
+                modification.value = REMOVE_KEY_VALUE
                 val newBuffer = arrayOfNulls<Any?>(buffer.size - 2)
                 System.arraycopy(buffer, 0, newBuffer, 0, i)
                 System.arraycopy(buffer, i + 2, newBuffer, i, buffer.size - i - 2)
@@ -207,37 +219,41 @@ internal class TrieNode<K, V>(val dataMap: Int,
         return null
     }
 
-    fun put(keyHash: Int, key: K, value: @UnsafeVariance V, shift: Int): TrieNode<K, V> {
+    fun put(keyHash: Int, key: K, value: @UnsafeVariance V, shift: Int, modification: ModificationWrapper): TrieNode<K, V> {
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
             val oldKey = keyAt<K>(keyPosition)!!
             if (key == oldKey) {
+                modification.value = UPDATE_VALUE
                 return updateDataAt(keyPosition, value)
             }
+            modification.value = PUT_KEY_VALUE
             val oldKeyHash = oldKey.hashCode()
             return moveDataToNode(keyPosition, oldKeyHash, keyHash, key, value, shift)
         }
         if (hasNodeAt(keyPosition)) { // key is in node
             val targetNode = nodeAt(keyPosition)
             val newNode = if (shift == MAX_SHIFT) {
-                targetNode.collisionPut(key, value)
+                targetNode.collisionPut(key, value, modification)
             } else {
-                targetNode.put(keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR)
+                targetNode.put(keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR, modification)
             }
             return updateNodeAt(keyPosition, newNode)
         }
 
         // key is absent
+        modification.value = PUT_KEY_VALUE
         return putDataAt(keyPosition, key, value)
     }
 
-    fun remove(keyHash: Int, key: K, shift: Int): TrieNode<K, V> {
+    fun remove(keyHash: Int, key: K, shift: Int, modification: ModificationWrapper): TrieNode<K, V> {
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
             val oldKey = keyAt<K>(keyPosition)!!
             if (key == oldKey) {
+                modification.value = REMOVE_KEY_VALUE
                 return removeDataAt(keyPosition)
             }
             return this
@@ -245,9 +261,9 @@ internal class TrieNode<K, V>(val dataMap: Int,
         if (hasNodeAt(keyPosition)) { // key is in node
             val targetNode = nodeAt(keyPosition)
             val newNode = if (shift == MAX_SHIFT) {
-                targetNode.collisionRemove(key)
+                targetNode.collisionRemove(key, modification)
             } else {
-                targetNode.remove(keyHash, key, shift + LOG_MAX_BRANCHING_FACTOR)
+                targetNode.remove(keyHash, key, shift + LOG_MAX_BRANCHING_FACTOR, modification)
             }
             return updateNodeAt(keyPosition, newNode)
         }
@@ -256,13 +272,14 @@ internal class TrieNode<K, V>(val dataMap: Int,
         return this
     }
 
-    fun remove(keyHash: Int, key: K, value: @UnsafeVariance V, shift: Int): TrieNode<K, V> {
+    fun remove(keyHash: Int, key: K, value: @UnsafeVariance V, shift: Int, modification: ModificationWrapper): TrieNode<K, V> {
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
             val oldKey = keyAt<K>(keyPosition)
             val oldValue = valueAt<V>(keyPosition)
             if (key == oldKey && value == oldValue) {
+                modification.value = REMOVE_KEY_VALUE
                 return removeDataAt(keyPosition)
             }
             return this
@@ -270,9 +287,9 @@ internal class TrieNode<K, V>(val dataMap: Int,
         if (hasNodeAt(keyPosition)) { // key is in node
             val targetNode = nodeAt(keyPosition)
             val newNode = if (shift == MAX_SHIFT) {
-                targetNode.collisionRemove(key, value)
+                targetNode.collisionRemove(key, value, modification)
             } else {
-                targetNode.remove(keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR)
+                targetNode.remove(keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR, modification)
             }
             return updateNodeAt(keyPosition, newNode)
         }
@@ -340,8 +357,10 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         }
 
         val keyHash = key.hashCode()
-        val newNode = node.put(keyHash, key, value, 0)
-        return PersistentHashMap(newNode, size + 1)
+        val modification = ModificationWrapper()
+        val newNode = node.put(keyHash, key, value, 0, modification)
+        val sizeDelta = if (modification.value == PUT_KEY_VALUE) 1 else 0
+        return PersistentHashMap(newNode, size + sizeDelta)
     }
 
     override fun remove(key: K): ImmutableMap<K, V> {
@@ -350,8 +369,10 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         }
 
         val keyHash = key.hashCode()
-        val newNode = node.remove(keyHash, key, 0)
-        return PersistentHashMap(newNode, size - 1)
+        val modification = ModificationWrapper()
+        val newNode = node.remove(keyHash, key, 0, modification)
+        val sizeDelta = if (modification.value == REMOVE_KEY_VALUE) -1 else 0
+        return PersistentHashMap(newNode, size + sizeDelta)
     }
 
     override fun remove(key: K, value: @UnsafeVariance V): ImmutableMap<K, V> {
@@ -360,8 +381,10 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         }
 
         val keyHash = key.hashCode()
-        val newNode = node.remove(keyHash, key, value, 0)
-        return PersistentHashMap(newNode, size - 1)
+        val modification = ModificationWrapper()
+        val newNode = node.remove(keyHash, key, value, 0, modification)
+        val sizeDelta = if (modification.value == REMOVE_KEY_VALUE) -1 else 0
+        return PersistentHashMap(newNode, size + sizeDelta)
     }
 
     override fun putAll(m: Map<out K, @UnsafeVariance V>): ImmutableMap<K, V> {

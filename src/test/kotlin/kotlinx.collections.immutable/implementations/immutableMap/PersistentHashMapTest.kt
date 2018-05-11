@@ -161,8 +161,7 @@ class PersistentHashMapTest {
             map = map.put(index, index.toString())
         }
         repeat(times = elementsToAdd) { index ->
-//            assertEquals(elementsToAdd - index, map.size)
-//            assertEquals(List(elementsToAdd - index) { it + index }, map.toList())
+            assertEquals(elementsToAdd - index, map.size)
             assertEquals(index.toString(), map[index])
             map = map.remove(index)
             assertNull(map[index])
@@ -173,15 +172,14 @@ class PersistentHashMapTest {
     fun removeEntryTests() {
         var map = persistentHashMapOf<Int, String>()
         assertTrue(map.put(0, "0").remove(0, "0").isEmpty())
-//        assertFalse(map.put(0, "0").remove(0, "x").isEmpty())
+        assertFalse(map.put(0, "0").remove(0, "x").isEmpty())
 
         val elementsToAdd = 1000000
         repeat(times = elementsToAdd) { index ->
             map = map.put(index, index.toString())
         }
         repeat(times = elementsToAdd) { index ->
-//            assertEquals(elementsToAdd - index, map.size)
-//            assertEquals(List(elementsToAdd - index) { it + index }, map.toList())
+            assertEquals(elementsToAdd - index, map.size)
             assertEquals(index.toString(), map[index])
             map = map.remove(index, (index + 1).toString())
             assertEquals(index.toString(), map[index])
@@ -256,10 +254,10 @@ class PersistentHashMapTest {
             repeat(times = elementsToAdd) { index ->
                 map = map.put(key(index), Int.MIN_VALUE)
                 assertEquals(Int.MIN_VALUE, map[key(index)])
-//                assertEquals(index + 1, map.size)
+                assertEquals(index + 1, map.size)
 
                 map = map.put(key(index), index)
-//                assertEquals(index + 1, map.size)
+                assertEquals(index + 1, map.size)
 
                 val collisions = keyGen.wrappersByHashCode(key(index).hashCode)
                 assertTrue(collisions.contains(key(index)))
@@ -281,13 +279,13 @@ class PersistentHashMapTest {
                         assertEquals(key.key, map[key])
                         map = if (removeEntryPredicate == 1) {
                             val sameMap = map.remove(key, Int.MIN_VALUE)
-//                            assertEquals(map.size, sameMap.size)
+                            assertEquals(map.size, sameMap.size)
                             assertEquals(key.key, sameMap[key])
 
                             map.remove(key, key.key)
                         } else {
                             val sameMap = map.remove(Wrapper(Int.MIN_VALUE, key.hashCode))
-//                            assertEquals(map.size, sameMap.size)
+                            assertEquals(map.size, sameMap.size)
                             assertEquals(key.key, sameMap[key])
 
                             map.remove(key)
@@ -295,7 +293,7 @@ class PersistentHashMapTest {
                     }
                 }
             }
-//            assertTrue(map.isEmpty())
+            assertTrue(map.isEmpty())
         }
     }
 
@@ -304,11 +302,12 @@ class PersistentHashMapTest {
         repeat(times = 1) {
 
             val random = Random()
-            val mutableMaps = List(10) { mutableMapOf<Int, Int>() }
-            val immutableMaps = MutableList(10) { persistentHashMapOf<Int, Int>() }
+            val mutableMaps = List(10) { mutableMapOf<Wrapper<Int>, Int>() }
+            val immutableMaps = MutableList(10) { persistentHashMapOf<Wrapper<Int>, Int>() }
 
             val operationCount = 1000000
-            val keys = List(operationCount) { random.nextInt() }
+            val keyGen = KeyGenerator<Int>(Int.MAX_VALUE)
+            val keys = List(operationCount / 2) { keyGen.key(random.nextInt()) }
             repeat(times = operationCount) {
                 val index = random.nextInt(mutableMaps.size)
                 val mutableMap = mutableMaps[index]
@@ -337,7 +336,7 @@ class PersistentHashMapTest {
                     }
                 }
 
-//                assertEquals(mutableMap.size, newImmutableMap.size)
+                assertEquals(mutableMap.size, newImmutableMap.size)
                 assertEquals(mutableMap[key], newImmutableMap[key])
                 assertEquals(mutableMap.containsKey(key), newImmutableMap.containsKey(key))
 //                assertEquals(mutableMap.containsValue(key), newImmutableMap.containsValue(key))
@@ -348,6 +347,7 @@ class PersistentHashMapTest {
             }
 
             println(mutableMaps.maxBy { it.size }?.size)
+            println(immutableMaps.maxBy { it.size }?.size)
 
             mutableMaps.forEachIndexed { index, mutableMap ->
                 var immutableMap = immutableMaps[index]
@@ -356,7 +356,7 @@ class PersistentHashMapTest {
                     mutableMap.remove(key)
                     immutableMap = immutableMap.remove(key)
 
-//                    assertEquals(mutableMap.size, immutableMap.size)
+                    assertEquals(mutableMap.size, immutableMap.size)
                     assertEquals(mutableMap[key], immutableMap[key])
                     assertEquals(mutableMap.containsKey(key), immutableMap.containsKey(key))
 //                    assertEquals(mutableMap.containsValue(key), immutableMap.containsValue(key))
