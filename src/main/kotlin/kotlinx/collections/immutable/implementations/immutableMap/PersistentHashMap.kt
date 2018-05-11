@@ -18,7 +18,6 @@ package kotlinx.collections.immutable.implementations.immutableMap
 
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.mutate
-import sun.text.normalizer.Trie
 
 const val MAX_BRANCHING_FACTOR = 32
 const val LOG_MAX_BRANCHING_FACTOR = 5
@@ -26,9 +25,9 @@ const val MAX_BRANCHING_FACTOR_MINUS_ONE = MAX_BRANCHING_FACTOR - 1
 const val ENTRY_SIZE = 2
 const val MAX_SHIFT = 30
 
-internal class TrieNode<K, V>(private val dataMap: Int,
-                              private val nodeMap: Int,
-                              private val buffer: Array<Any?>) {
+internal class TrieNode<K, V>(val dataMap: Int,
+                              val nodeMap: Int,
+                              val buffer: Array<Any?>) {
     private fun hasDataAt(position: Int): Boolean {
         return dataMap and position != 0
     }
@@ -291,11 +290,32 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
     }
 
     override val keys: Set<K>
-        get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+        get() {
+            val iterator = PersistentHashMapIterator(node)
+            val keys = mutableSetOf<K>()
+            while (iterator.hasNext()) {
+                keys.add(iterator.nextKey())
+            }
+            return keys
+        }
     override val values: Collection<V>
-        get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+        get() {
+            val iterator = PersistentHashMapIterator(node)
+            val values = mutableListOf<V>()
+            while (iterator.hasNext()) {
+                values.add(iterator.nextValue())
+            }
+            return values
+        }
     override val entries: Set<Map.Entry<K, V>>
-        get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+        get() {
+            val iterator = PersistentHashMapIterator(node)
+            val entries = mutableSetOf<Map.Entry<K, V>>()
+            while (iterator.hasNext()) {
+                entries.add(iterator.nextEntry())
+            }
+            return entries
+        }
 
     override fun containsKey(key: K): Boolean {
         return get(key) != null     // what if value is optional?
