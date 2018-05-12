@@ -15,7 +15,7 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
         if (path[pathIndex].hashNextEntry()) {
             return pathIndex
         }
-        while (path[pathIndex].hashNextNode()) { // requires canonicalization (if)
+        if (path[pathIndex].hashNextNode()) { // requires canonicalization (if)
             val node = path[pathIndex].currentNode()
             if (pathIndex == 6) {
                 path[pathIndex + 1].reset(node.buffer, node.buffer.size)
@@ -23,7 +23,7 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
                 path[pathIndex + 1].reset(node.buffer, 2 * Integer.bitCount(node.dataMap))
             }
             val result = moveToNextNodeWithData(pathIndex + 1)
-            if (result != -1) {
+            if (result != -1) { // requires canonicalization (assert(result != -1))
                 return result
             }
             path[pathIndex].moveToNextNode()
@@ -37,11 +37,11 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
         }
         for(i in pathLastIndex downTo 0) {
             var result = moveToNextNodeWithData(i)
-            while (result == -1 && path[i].hashNextNode()) { // requires canonicalization (if)
+            if (result == -1 && path[i].hashNextNode()) { // requires canonicalization (if)
                 path[i].moveToNextNode()
                 result = moveToNextNodeWithData(i)
             }
-            if (result != -1) {
+            if (result != -1) { // requires canonicalization (assert(result != -1))
                 pathLastIndex = result
                 return
             }
