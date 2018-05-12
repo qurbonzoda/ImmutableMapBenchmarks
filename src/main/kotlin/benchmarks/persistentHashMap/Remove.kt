@@ -37,6 +37,10 @@ open class Remove {
 
     @Setup(Level.Trial)
     fun prepare() {
+        if (implementation != "persistentHashMap") {
+            throw AssertionError("Unknown implementation: $implementation")
+        }
+
         distinctKeys.clear()
         randomKeys.clear()
         collisionKeys.clear()
