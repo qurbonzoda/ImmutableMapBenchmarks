@@ -1,6 +1,6 @@
 package kotlinx.collections.immutable.implementations.immutableMap
 
-private const val TRIE_MAX_HEIGHT = 7
+private const val TRIE_MAX_HEIGHT = 8
 
 internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
     private val path: Array<TrieNodeIterator<K, V>> = Array(TRIE_MAX_HEIGHT + 1) {   TrieNodeIterator<K, V>() }
