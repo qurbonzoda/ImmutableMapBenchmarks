@@ -18,16 +18,94 @@ package kotlinx.collections.immutable.implementations.immutableMap
 
 import kotlinx.collections.immutable.ImmutableMap
 
-internal class PersistentHashMapBuilder<K, V>(private val node: TrieNode<K, V>,
-                                              override var size: Int) : ImmutableMap.Builder<K, V>, AbstractMutableMap<K, V>() {
+class Marker
+
+internal class PersistentHashMapBuilder<K, V>(private var node: TrieNode<K, V>,
+                                              override var size: Int) : ImmutableMap.Builder<K, V> {
+    internal var marker = Marker()
+
     override fun build(): ImmutableMap<K, V> {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        marker = Marker()
+        return PersistentHashMap(node, size)
+    }
+
+    override fun containsKey(key: K): Boolean {
+        return get(key) != null     // what if value is optional?
+    }
+
+    override fun containsValue(value: V): Boolean {
+        return values.contains(value)
+    }
+
+    override fun get(key: K): V? {
+        if (key == null) {
+            throw IllegalArgumentException()
+        }
+
+        val keyHash = key.hashCode()
+        return node.get(keyHash, key, 0)
+    }
+
+    override fun isEmpty(): Boolean {
+        return size == 0
     }
 
     override val entries: MutableSet<MutableMap.MutableEntry<K, V>>
-        get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+        get() {
+            val iterator = PersistentHashMapIterator(node)
+            val entries = mutableSetOf<MutableMap.MutableEntry<K, V>>()
+            while (iterator.hasNext()) {
+                val entry = iterator.nextEntry().toMutable()
+                entries.add(entry)
+            }
+            return entries
+        }
+    override val keys: MutableSet<K>
+        get() {
+            val iterator = PersistentHashMapIterator(node)
+            val keys = mutableSetOf<K>()
+            while (iterator.hasNext()) {
+                keys.add(iterator.nextKey())
+            }
+            return keys
+        }
 
-    override fun put(key: K, value: V): V? {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    override val values: MutableCollection<V>
+        get() {
+            val iterator = PersistentHashMapIterator(node)
+            val values = mutableListOf<V>()
+            while (iterator.hasNext()) {
+                values.add(iterator.nextValue())
+            }
+            return values
+        }
+
+    override fun clear() {
+        node = TrieNode.EMPTY as TrieNode<K, V>
+        size = 0
+    }
+
+    override fun put(key: K, value: @UnsafeVariance V): V? {
+        if (key == null) {
+            throw IllegalArgumentException()
+        }
+
+        val keyHash = key.hashCode()
+        node = node.makeMutableFor(this)
+        return node.mutablePut(keyHash, key, value, 0, this)
+    }
+
+    override fun putAll(from: Map<out K, V>) {
+        from.forEach { key, value -> put(key, value) }
+    }
+
+    override fun remove(key: K): V? {
+        if (key == null) {
+            throw IllegalArgumentException()
+        }
+
+        val keyHash = key.hashCode()
+        node = node.makeMutableFor(this)
+        return node.mutableRemove(keyHash, key, 0, this)
     }
 }

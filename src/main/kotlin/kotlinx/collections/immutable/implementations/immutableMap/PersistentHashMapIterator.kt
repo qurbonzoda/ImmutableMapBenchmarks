@@ -18,7 +18,7 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
         if (path[pathIndex].hashNextNode()) { // requires canonicalization (if)
             val node = path[pathIndex].currentNode()
             if (pathIndex == 6) {
-                path[pathIndex + 1].reset(node.buffer, node.buffer.size)
+                path[pathIndex + 1].reset(node.buffer, node.buffer.size - 1)
             } else {
                 path[pathIndex + 1].reset(node.buffer, 2 * Integer.bitCount(node.dataMap))
             }
@@ -117,7 +117,7 @@ internal class TrieNodeIterator<out K, out V> {
     }
 
     fun hashNextNode(): Boolean {
-        return index < buffer.size
+        return index < buffer.size - 1
     }
 
     fun moveToNextNode() {
@@ -127,4 +127,16 @@ internal class TrieNodeIterator<out K, out V> {
 }
 
 private class MapEntry<out K, out V>(override val key: K, override val value: V) : Map.Entry<K, V>
+
+internal fun <K, V> Map.Entry<K, V>.toMutable(): MutableMap.MutableEntry<K, V> {
+    return MapMutableEntry(key, value)
+}
+
+private class MapMutableEntry<K, V>(override val key: K, override var value: V) : MutableMap.MutableEntry<K, V> {
+    override fun setValue(newValue: V): V {
+        val previousValue = value
+        value = newValue
+        return previousValue
+    }
+}
 
