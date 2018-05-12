@@ -1,7 +1,9 @@
 package kotlinx.collections.immutable.implementations.immutableMap
 
+private const val TRIE_MAX_HEIGHT = 7
+
 internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
-    private val path: Array<TrieNodeIterator<K, V>> = Array(8) {   TrieNodeIterator<K, V>() }
+    private val path: Array<TrieNodeIterator<K, V>> = Array(TRIE_MAX_HEIGHT + 1) {   TrieNodeIterator<K, V>() }
     private var pathLastIndex = 0
     private var hasNext = true
 
@@ -17,7 +19,7 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
         }
         if (path[pathIndex].hashNextNode()) { // requires canonicalization (if)
             val node = path[pathIndex].currentNode()
-            if (pathIndex == 6) {
+            if (pathIndex == TRIE_MAX_HEIGHT - 1) {
                 path[pathIndex + 1].reset(node.buffer, node.buffer.size - 1)
             } else {
                 path[pathIndex + 1].reset(node.buffer, 2 * Integer.bitCount(node.dataMap))
