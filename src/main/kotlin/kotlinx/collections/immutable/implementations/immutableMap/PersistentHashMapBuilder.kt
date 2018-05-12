@@ -26,7 +26,8 @@ internal class PersistentHashMapBuilder<K, V>(private var node: TrieNode<K, V>,
 
     override fun build(): ImmutableMap<K, V> {
         marker = Marker()
-        return PersistentHashMap(node, size)
+        throw AssertionError()
+//        return PersistentHashMap(node, size)
     }
 
     override fun containsKey(key: K): Boolean {

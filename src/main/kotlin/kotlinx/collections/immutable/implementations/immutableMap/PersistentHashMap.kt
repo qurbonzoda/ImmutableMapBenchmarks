@@ -506,7 +506,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
 }
 
 
-internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
+internal class PersistentHashMap<K, out V>(private val node: Array<Any?>,
                                            override val size: Int): ImmutableMap<K, V> {
 
     override fun isEmpty(): Boolean {
@@ -515,32 +515,35 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
 
     override val keys: Set<K>
         get() {
-            val iterator = PersistentHashMapIterator(node)
-            val keys = mutableSetOf<K>()
-            while (iterator.hasNext()) {
-                keys.add(iterator.nextKey())
-            }
-            return keys
+            throw AssertionError("Not Implemented")
+//            val iterator = PersistentHashMapIterator(node)
+//            val keys = mutableSetOf<K>()
+//            while (iterator.hasNext()) {
+//                keys.add(iterator.nextKey())
+//            }
+//            return keys
         }
 
     override val values: Collection<V>
         get() {
-            val iterator = PersistentHashMapIterator(node)
-            val values = mutableListOf<V>()
-            while (iterator.hasNext()) {
-                values.add(iterator.nextValue())
-            }
-            return values
+            throw AssertionError("Not Implemented")
+//            val iterator = PersistentHashMapIterator(node)
+//            val values = mutableListOf<V>()
+//            while (iterator.hasNext()) {
+//                values.add(iterator.nextValue())
+//            }
+//            return values
         }
 
     override val entries: Set<Map.Entry<K, V>>
         get() {
-            val iterator = PersistentHashMapIterator(node)
-            val entries = mutableSetOf<Map.Entry<K, V>>()
-            while (iterator.hasNext()) {
-                entries.add(iterator.nextEntry())
-            }
-            return entries
+            throw AssertionError("Not Implemented")
+//            val iterator = PersistentHashMapIterator(node)
+//            val entries = mutableSetOf<Map.Entry<K, V>>()
+//            while (iterator.hasNext()) {
+//                entries.add(iterator.nextEntry())
+//            }
+//            return entries
         }
 
     override fun containsKey(key: K): Boolean {
@@ -557,7 +560,7 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         }
 
         val keyHash = key.hashCode()
-        return node.get(keyHash, key, 0)
+        return node_get(node, keyHash, key, 0)
     }
 
     override fun put(key: K, value: @UnsafeVariance V): ImmutableMap<K, V> {
@@ -567,7 +570,7 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
 
         val keyHash = key.hashCode()
         val modification = ModificationWrapper()
-        val newNode = node.put(keyHash, key, value, 0, modification)
+        val newNode = node_put(node, keyHash, key, value, 0, modification)
 
 //        if (node === newNode) {
 //            assert(modification.value == NO_MODIFICATION)
@@ -586,7 +589,7 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         }
 
         val keyHash = key.hashCode()
-        val newNode = node.remove(keyHash, key, 0)
+        val newNode = node_remove(node, keyHash, key, 0)
         if (node === newNode) { return this }
         if (newNode == null) { return persistentHashMapOf() }
         return PersistentHashMap(newNode, size - 1)
@@ -598,7 +601,7 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         }
 
         val keyHash = key.hashCode()
-        val newNode = node.remove(keyHash, key, value, 0)
+        val newNode = node_remove(node, keyHash, key, value, 0)
         if (node === newNode) { return this }
         if (newNode == null) { return persistentHashMapOf() }
         return PersistentHashMap(newNode, size - 1)
@@ -613,11 +616,12 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
     }
 
     override fun builder(): ImmutableMap.Builder<K, @UnsafeVariance V> {
-        return PersistentHashMapBuilder(node, size)
+        throw AssertionError("Not Implemented")
+//        return PersistentHashMapBuilder(node, size)
     }
 
     internal companion object {
-        internal val EMPTY = PersistentHashMap(TrieNode.EMPTY, 0)
+        internal val EMPTY = PersistentHashMap<Any?, Nothing>(NODE_EMPTY, 0)
     }
 }
 
