@@ -72,40 +72,40 @@ open class Put {
         return map
     }
 
-    @Benchmark
-    fun putAndGetDistinct(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
-        var map = this.emptyMap
-        repeat(times = this.listSize) { index ->
-            map = map.plus(distinctKeys[index], "some element")
-        }
-        repeat(times = this.listSize) { index ->
-            bh.consume(map[distinctKeys[index]])
-        }
-        return map
-    }
-
-    @Benchmark
-    fun putAndGetRandom(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
-        var map = this.emptyMap
-        repeat(times = this.listSize) { index ->
-            map = map.plus(randomKeys[index], "some element")
-        }
-        repeat(times = this.listSize) { index ->
-            bh.consume(map[randomKeys[index]])
-        }
-        return map
-    }
-
-    @Benchmark
-    fun putAndGetCollision(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
-        var map = this.emptyMap
-        repeat(times = this.listSize) { index ->
-            map = map.plus(collisionKeys[index], "some element")
-        }
-        repeat(times = this.listSize) { index ->
-            bh.consume(map[collisionKeys[index]])
-        }
-        return map
-    }
+//    @Benchmark
+//    fun putAndGetDistinct(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
+//        var map = this.emptyMap
+//        repeat(times = this.listSize) { index ->
+//            map = map.plus(distinctKeys[index], "some element")
+//        }
+//        repeat(times = this.listSize) { index ->
+//            bh.consume(map[distinctKeys[index]])
+//        }
+//        return map
+//    }
+//
+//    @Benchmark
+//    fun putAndGetRandom(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
+//        var map = this.emptyMap
+//        repeat(times = this.listSize) { index ->
+//            map = map.plus(randomKeys[index], "some element")
+//        }
+//        repeat(times = this.listSize) { index ->
+//            bh.consume(map[randomKeys[index]])
+//        }
+//        return map
+//    }
+//
+//    @Benchmark
+//    fun putAndGetCollision(bh: Blackhole): PMap<KeyWrapper<Int>, String> {
+//        var map = this.emptyMap
+//        repeat(times = this.listSize) { index ->
+//            map = map.plus(collisionKeys[index], "some element")
+//        }
+//        repeat(times = this.listSize) { index ->
+//            bh.consume(map[collisionKeys[index]])
+//        }
+//        return map
+//    }
 }
 

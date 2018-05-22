@@ -70,40 +70,40 @@ open class Put {
         return map
     }
 
-    @Benchmark
-    fun putAndGetDistinct(bh: Blackhole): Map.Immutable<KeyWrapper<Int>, String> {
-        var map = this.emptyMap
-        repeat(times = this.listSize) { index ->
-            map = map.__put(distinctKeys[index], "some element")
-        }
-        repeat(times = this.listSize) { index ->
-            bh.consume(map[distinctKeys[index]])
-        }
-        return map
-    }
-
-    @Benchmark
-    fun putAndGetRandom(bh: Blackhole): Map.Immutable<KeyWrapper<Int>, String> {
-        var map = this.emptyMap
-        repeat(times = this.listSize) { index ->
-            map = map.__put(randomKeys[index], "some element")
-        }
-        repeat(times = this.listSize) { index ->
-            bh.consume(map[randomKeys[index]])
-        }
-        return map
-    }
-
-    @Benchmark
-    fun putAndGetCollision(bh: Blackhole): Map.Immutable<KeyWrapper<Int>, String> {
-        var map = this.emptyMap
-        repeat(times = this.listSize) { index ->
-            map = map.__put(collisionKeys[index], "some element")
-        }
-        repeat(times = this.listSize) { index ->
-            bh.consume(map[collisionKeys[index]])
-        }
-        return map
-    }
+//    @Benchmark
+//    fun putAndGetDistinct(bh: Blackhole): Map.Immutable<KeyWrapper<Int>, String> {
+//        var map = this.emptyMap
+//        repeat(times = this.listSize) { index ->
+//            map = map.__put(distinctKeys[index], "some element")
+//        }
+//        repeat(times = this.listSize) { index ->
+//            bh.consume(map[distinctKeys[index]])
+//        }
+//        return map
+//    }
+//
+//    @Benchmark
+//    fun putAndGetRandom(bh: Blackhole): Map.Immutable<KeyWrapper<Int>, String> {
+//        var map = this.emptyMap
+//        repeat(times = this.listSize) { index ->
+//            map = map.__put(randomKeys[index], "some element")
+//        }
+//        repeat(times = this.listSize) { index ->
+//            bh.consume(map[randomKeys[index]])
+//        }
+//        return map
+//    }
+//
+//    @Benchmark
+//    fun putAndGetCollision(bh: Blackhole): Map.Immutable<KeyWrapper<Int>, String> {
+//        var map = this.emptyMap
+//        repeat(times = this.listSize) { index ->
+//            map = map.__put(collisionKeys[index], "some element")
+//        }
+//        repeat(times = this.listSize) { index ->
+//            bh.consume(map[collisionKeys[index]])
+//        }
+//        return map
+//    }
 }
 

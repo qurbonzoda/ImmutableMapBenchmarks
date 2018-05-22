@@ -9,7 +9,7 @@ import java.io.FileWriter
 fun main(args: Array<String>) {
     val millisInSecond = 1000L
     val secondsInMinute = 60L
-    val tenMinutes = 10 * secondsInMinute * millisInSecond
+    val tenMinutes = 5 * secondsInMinute * millisInSecond
     Thread.sleep(tenMinutes)
 
     val outputFile = "teamcityArtifacts/persistentHashMap.csv"

@@ -15,47 +15,63 @@ package kotlinx.collections.immutable.implementations.immutableMap
 //    }
 //}
 
-private fun hasDataAt(buffer: Array<Any?>, position: Int): Boolean {
-    return (buffer[0] as Int) and position != 0
+private fun getDataMap(buffer: Array<Any?>): Int {
+    return buffer[0] as Int
 }
 
-private fun hasNodeAt(buffer: Array<Any?>, position: Int): Boolean {
-    return (buffer[1] as Int) and position != 0
+private fun getNodeMap(buffer: Array<Any?>): Int {
+    return buffer[1] as Int
 }
 
-private fun keyDataIndex(buffer: Array<Any?>, position: Int): Int {
-    return ENTRY_SIZE * Integer.bitCount((buffer[0] as Int) and (position - 1)) + 2 // dataMap and nodeMap go first
+private fun setDataMap(buffer: Array<Any?>, dataMap: Int) {
+    buffer[0] = dataMap
 }
 
-private fun keyNodeIndex(buffer: Array<Any?>, position: Int): Int {
-    return buffer.size - 2 - Integer.bitCount((buffer[1] as Int) and (position - 1))   // last element is marker
+private fun setNodeMap(buffer: Array<Any?>, nodeMap: Int) {
+    buffer[1] = nodeMap
 }
 
-private fun <K> keyAt(buffer: Array<Any?>, position: Int): K {
-    val keyIndex = keyDataIndex(buffer, position)
+private fun hasDataAt(dataMap: Int, position: Int): Boolean {
+    return dataMap and position != 0
+}
+
+private fun hasNodeAt(nodeMap: Int, position: Int): Boolean {
+    return nodeMap and position != 0
+}
+
+private fun keyDataIndex(dataMap: Int, position: Int): Int {
+    return ENTRY_SIZE * Integer.bitCount(dataMap and (position - 1)) + 2 // dataMap and nodeMap go first
+}
+
+private fun keyNodeIndex(bufferSize: Int, nodeMap: Int, position: Int): Int {
+    return bufferSize - 2 - Integer.bitCount(nodeMap and (position - 1))   // last element is marker
+}
+
+private fun <K> keyAt(buffer: Array<Any?>, dataMap: Int, position: Int): K {
+    val keyIndex = keyDataIndex(dataMap, position)
     return buffer[keyIndex] as K
 }
 
-private fun <V> valueAt(buffer: Array<Any?>, position: Int): V {
-    val valueIndex = keyDataIndex(buffer, position) + 1
+private fun <V> valueAt(buffer: Array<Any?>, dataMap: Int, position: Int): V {
+    val valueIndex = keyDataIndex(dataMap, position) + 1
     return buffer[valueIndex] as V
 }
 
-private fun nodeAt(buffer: Array<Any?>, position: Int): Array<Any?> {
-    val nodeIndex = keyNodeIndex(buffer, position)
+private fun nodeAt(buffer: Array<Any?>, nodeMap: Int, position: Int): Array<Any?> {
+    val nodeIndex = keyNodeIndex(buffer.size, nodeMap, position)
     return buffer[nodeIndex] as Array<Any?>
 }
 
-private fun <K, V> putDataAt(buffer: Array<Any?>, position: Int, key: K, value: V): Array<Any?> {
+private fun <K, V> putDataAt(buffer: Array<Any?>, dataMap: Int, position: Int, key: K, value: V): Array<Any?> {
 //        assert(!hasDataAt(position))
 
-    val keyIndex = keyDataIndex(buffer, position)
+    val keyIndex = keyDataIndex(dataMap, position)
     val newBuffer = arrayOfNulls<Any?>(buffer.size + 2)
     System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
     System.arraycopy(buffer, keyIndex, newBuffer, keyIndex + 2, buffer.size - 1 - keyIndex) // marker
     newBuffer[keyIndex] = key
     newBuffer[keyIndex + 1] = value
-    newBuffer[0] = (newBuffer[0] as Int) or position
+    setDataMap(newBuffer, dataMap or position)
     return newBuffer
 }
 
@@ -72,10 +88,10 @@ private fun <K, V> putDataAt(buffer: Array<Any?>, position: Int, key: K, value: 
 //    return newBuffer
 //}
 
-private fun <V> updateValueAt(buffer: Array<Any?>, position: Int, value: V): Array<Any?> {
+private fun <V> updateValueAt(buffer: Array<Any?>, dataMap: Int, position: Int, value: V): Array<Any?> {
 //        assert(hasDataAt(position))
 
-    val keyIndex = keyDataIndex(buffer, position)
+    val keyIndex = keyDataIndex(dataMap, position)
 //        assert(buffer[keyIndex + 1] !== value)
     val newBuffer = buffer.copyOf()
     newBuffer[keyIndex + 1] = value
@@ -91,10 +107,10 @@ private fun <V> updateValueAt(buffer: Array<Any?>, position: Int, value: V): Arr
 //    return previousValue as V
 //}
 
-private fun updateNodeAt(buffer: Array<Any?>, position: Int, newNode: Array<Any?>): Array<Any?> {
+private fun updateNodeAt(buffer: Array<Any?>, nodeMap: Int, position: Int, newNode: Array<Any?>): Array<Any?> {
 //        assert(hasNodeAt(position))
 
-    val nodeIndex = keyNodeIndex(buffer, position)
+    val nodeIndex = keyNodeIndex(buffer.size, nodeMap, position)
 //        assert(buffer[nodeIndex] !== newNode)
     val newBuffer = buffer.copyOf()
     newBuffer[nodeIndex] = newNode
@@ -108,13 +124,14 @@ private fun updateNodeAt(buffer: Array<Any?>, position: Int, newNode: Array<Any?
 //    buffer[nodeIndex] = newNode
 //}
 
-private fun <K, V> moveDataToNode(buffer: Array<Any?>, position: Int, oldKeyHash: Int, newKeyHash: Int,
+private fun <K, V> moveDataToNode(buffer: Array<Any?>, dataMap: Int, position: Int, oldKeyHash: Int, newKeyHash: Int,
                                   newKey: K, newValue: V, shift: Int): Array<Any?> {
 //        assert(hasDataAt(position))
 //        assert(!hasNodeAt(position))
 
-    val keyIndex = keyDataIndex(buffer, position)
-    val nodeIndex = keyNodeIndex(buffer, position) - 1
+    val keyIndex = keyDataIndex(dataMap, position)
+    val nodeMap = getNodeMap(buffer)
+    val nodeIndex = keyNodeIndex(buffer.size, nodeMap, position) - 1
     val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
     System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
     System.arraycopy(buffer, keyIndex + 2, newBuffer, keyIndex, nodeIndex - keyIndex)
@@ -122,8 +139,8 @@ private fun <K, V> moveDataToNode(buffer: Array<Any?>, position: Int, oldKeyHash
 
     newBuffer[nodeIndex] = makeNode(oldKeyHash, buffer[keyIndex] as K, buffer[keyIndex + 1] as V,
             newKeyHash, newKey, newValue, shift + LOG_MAX_BRANCHING_FACTOR, null)
-    newBuffer[0] = (newBuffer[0] as Int) xor position
-    newBuffer[1] = (newBuffer[1] as Int) or position
+    setDataMap(newBuffer, dataMap xor position)
+    setNodeMap(newBuffer, nodeMap or position)
     return newBuffer
 }
 
@@ -181,13 +198,13 @@ private fun bufferRemoveDataAtIndex(buffer: Array<Any?>, keyIndex: Int): Array<A
 //    return newBuffer
 //}
 
-private fun removeDataAt(buffer: Array<Any?>, position: Int): Array<Any?>? {
+private fun removeDataAt(buffer: Array<Any?>, dataMap: Int, position: Int): Array<Any?>? {
 //        assert(hasDataAt(position))
     if (buffer.size == 5) { return null }
 
-    val keyIndex = keyDataIndex(buffer, position)
+    val keyIndex = keyDataIndex(dataMap, position)
     val newBuffer = bufferRemoveDataAtIndex(buffer, keyIndex)
-    newBuffer[0] = (newBuffer[0] as Int) xor position
+    setDataMap(newBuffer, dataMap xor position)
     return newBuffer
 }
 
@@ -211,15 +228,15 @@ private fun collisionRemoveDataAt(buffer: Array<Any?>, i: Int): Array<Any?>? {
 //    return previousValue as V
 //}
 
-private fun removeNodeAt(buffer: Array<Any?>, position: Int): Array<Any?>? {
+private fun removeNodeAt(buffer: Array<Any?>, nodeMap: Int, position: Int): Array<Any?>? {
 //        assert(hasNodeAt(position))
     if (buffer.size == 4) { return null } // marker
 
-    val keyIndex = keyNodeIndex(buffer, position)
+    val keyIndex = keyNodeIndex(buffer.size, nodeMap, position)
     val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
     System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
     System.arraycopy(buffer, keyIndex + 1, newBuffer, keyIndex, buffer.size - keyIndex - 2) // marker
-    newBuffer[1] = (newBuffer[1] as Int) xor position
+    setNodeMap(newBuffer, nodeMap xor position)
     return newBuffer
 }
 
@@ -309,15 +326,17 @@ private fun <K, V> collisionRemove(buffer: Array<Any?>, key: K, value: V): Array
 internal fun <K, V> node_get(buffer: Array<Any?>, keyHash: Int, key: K, shift: Int): V? {
     val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
-    if (hasDataAt(buffer, keyPosition)) { // key is directly in buffer
-        val storedKey = keyAt<K>(buffer, keyPosition)!!
+    val dataMap = getDataMap(buffer)
+    if (hasDataAt(dataMap, keyPosition)) { // key is directly in buffer
+        val storedKey = keyAt<K>(buffer, dataMap, keyPosition)
         if (key == storedKey) {
-            return valueAt(buffer, keyPosition)
+            return valueAt(buffer, dataMap, keyPosition)
         }
         return null
     }
-    if (hasNodeAt(buffer, keyPosition)) { // key is in node
-        val targetNode = nodeAt(buffer, keyPosition)
+    val nodeMap = getNodeMap(buffer)
+    if (hasNodeAt(nodeMap, keyPosition)) { // key is in node
+        val targetNode = nodeAt(buffer, nodeMap, keyPosition)
         if (shift == MAX_SHIFT) {
             return collisionGet(targetNode, key)
         }
@@ -332,31 +351,33 @@ internal fun <K, V> node_put(buffer: Array<Any?>, keyHash: Int, key: K, value: @
                              shift: Int, modification: ModificationWrapper): Array<Any?> {
     val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
-    if (hasDataAt(buffer, keyPosition)) { // key is directly in buffer
-        val oldKey = keyAt<K>(buffer, keyPosition)!!
+    val dataMap = getDataMap(buffer)
+    if (hasDataAt(dataMap, keyPosition)) { // key is directly in buffer
+        val oldKey = keyAt<K>(buffer, dataMap, keyPosition)
         if (key == oldKey) {
-            if (valueAt<V>(buffer, keyPosition) === value) { return buffer }
+            if (valueAt<V>(buffer, dataMap, keyPosition) === value) { return buffer }
             modification.value = UPDATE_VALUE
-            return updateValueAt(buffer, keyPosition, value)
+            return updateValueAt(buffer, dataMap, keyPosition, value)
         }
         modification.value = PUT_KEY_VALUE
-        val oldKeyHash = oldKey.hashCode()
-        return moveDataToNode(buffer, keyPosition, oldKeyHash, keyHash, key, value, shift)
+        val oldKeyHash = oldKey?.hashCode() ?: 0
+        return moveDataToNode(buffer, dataMap, keyPosition, oldKeyHash, keyHash, key, value, shift)
     }
-    if (hasNodeAt(buffer, keyPosition)) { // key is in node
-        val targetNode = nodeAt(buffer, keyPosition)
+    val nodeMap = getNodeMap(buffer)
+    if (hasNodeAt(nodeMap, keyPosition)) { // key is in node
+        val targetNode = nodeAt(buffer, nodeMap, keyPosition)
         val newNode = if (shift == MAX_SHIFT) {
             collisionPut(targetNode, key, value, modification)
         } else {
             node_put(targetNode, keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR, modification)
         }
         if (targetNode === newNode) { return buffer }
-        return updateNodeAt(buffer, keyPosition, newNode)
+        return updateNodeAt(buffer, nodeMap, keyPosition, newNode)
     }
 
     // key is absent
     modification.value = PUT_KEY_VALUE
-    return putDataAt(buffer, keyPosition, key, value)
+    return putDataAt(buffer, dataMap, keyPosition, key, value)
 }
 
 //internal fun <K, V> node_mutablePut(buffer: Array<Any?>, keyHash: Int, key: K, value: @UnsafeVariance V, shift: Int, mutator: PersistentHashMapBuilder<*, *>): V? {
@@ -392,23 +413,25 @@ internal fun <K, V> node_put(buffer: Array<Any?>, keyHash: Int, key: K, value: @
 internal fun <K> node_remove(buffer: Array<Any?>, keyHash: Int, key: K, shift: Int): Array<Any?>? {
     val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
-    if (hasDataAt(buffer, keyPosition)) { // key is directly in buffer
-        val oldKey = keyAt<K>(buffer, keyPosition)!!
+    val dataMap = getDataMap(buffer)
+    if (hasDataAt(dataMap, keyPosition)) { // key is directly in buffer
+        val oldKey = keyAt<K>(buffer, dataMap, keyPosition)
         if (key == oldKey) {
-            return removeDataAt(buffer, keyPosition)
+            return removeDataAt(buffer, dataMap, keyPosition)
         }
         return buffer
     }
-    if (hasNodeAt(buffer, keyPosition)) { // key is in node
-        val targetNode = nodeAt(buffer, keyPosition)
+    val nodeMap = getNodeMap(buffer)
+    if (hasNodeAt(nodeMap, keyPosition)) { // key is in node
+        val targetNode = nodeAt(buffer, nodeMap, keyPosition)
         val newNode: Array<Any?>? = if (shift == MAX_SHIFT) {
             collisionRemove(targetNode, key)
         } else {
             node_remove(targetNode, keyHash, key, shift + LOG_MAX_BRANCHING_FACTOR)
         }
         if (targetNode === newNode) { return buffer}
-        if (newNode == null) { return removeNodeAt(buffer, keyPosition) }
-        return updateNodeAt(buffer, keyPosition, newNode)
+        if (newNode == null) { return removeNodeAt(buffer, nodeMap, keyPosition) }
+        return updateNodeAt(buffer, nodeMap, keyPosition, newNode)
     }
 
     // key is absent
@@ -418,24 +441,26 @@ internal fun <K> node_remove(buffer: Array<Any?>, keyHash: Int, key: K, shift: I
 internal fun <K, V> node_remove(buffer: Array<Any?>, keyHash: Int, key: K, value: @UnsafeVariance V, shift: Int): Array<Any?>? {
     val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
-    if (hasDataAt(buffer, keyPosition)) { // key is directly in buffer
-        val oldKey = keyAt<K>(buffer, keyPosition)
-        val oldValue = valueAt<V>(buffer, keyPosition)
+    val dataMap = getDataMap(buffer)
+    if (hasDataAt(dataMap, keyPosition)) { // key is directly in buffer
+        val oldKey = keyAt<K>(buffer, dataMap, keyPosition)
+        val oldValue = valueAt<V>(buffer, dataMap, keyPosition)
         if (key == oldKey && value == oldValue) {
-            return removeDataAt(buffer, keyPosition)
+            return removeDataAt(buffer, dataMap, keyPosition)
         }
         return buffer
     }
-    if (hasNodeAt(buffer, keyPosition)) { // key is in node
-        val targetNode = nodeAt(buffer, keyPosition)
+    val nodeMap = getNodeMap(buffer)
+    if (hasNodeAt(nodeMap, keyPosition)) { // key is in node
+        val targetNode = nodeAt(buffer, nodeMap, keyPosition)
         val newNode: Array<Any?>? = if (shift == MAX_SHIFT) {
             collisionRemove(targetNode, key, value)
         } else {
             node_remove(targetNode, keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR)
         }
         if (targetNode === newNode) { return buffer }
-        if (newNode == null) { return removeNodeAt(buffer, keyPosition) }
-        return updateNodeAt(buffer, keyPosition, newNode)
+        if (newNode == null) { return removeNodeAt(buffer, nodeMap, keyPosition) }
+        return updateNodeAt(buffer, nodeMap, keyPosition, newNode)
     }
 
     // key is absent
