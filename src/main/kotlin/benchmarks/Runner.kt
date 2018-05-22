@@ -7,14 +7,19 @@ import org.openjdk.jmh.runner.options.TimeValue
 import java.io.FileWriter
 
 fun main(args: Array<String>) {
+    val millisInSecond = 1000L
+    val secondsInMinute = 60L
+    val tenMinutes = 10 * secondsInMinute * millisInSecond
+    Thread.sleep(tenMinutes)
+
     val outputFile = "teamcityArtifacts/persistentHashMap.csv"
     val options = OptionsBuilder()
             .jvmArgs("-Xms3072m", "-Xmx3072m")
 //            .include(".putDistinct$")
             .warmupIterations(10)
             .measurementIterations(10)
-            .warmupTime(TimeValue.milliseconds(1000))
-            .measurementTime(TimeValue.milliseconds(1000))
+            .warmupTime(TimeValue.milliseconds(2000))
+            .measurementTime(TimeValue.milliseconds(2000))
             .param("implementation", *args)
 //            .param("listSize", BM_1000000)
             .addProfiler("gc")
