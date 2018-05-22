@@ -15,20 +15,32 @@ package kotlinx.collections.immutable.implementations.immutableMap
 //    }
 //}
 
+private const val MAPPINGS_SIZE = 4
+
 private fun getDataMap(buffer: Array<Any?>): Int {
-    return buffer[0] as Int
+    val byte1 = buffer[0] as Int + 128
+    val byte2 = buffer[1] as Int + 128
+    return (byte1 shl 8) + byte2
 }
 
 private fun getNodeMap(buffer: Array<Any?>): Int {
-    return buffer[1] as Int
+    val byte1 = buffer[2] as Int + 128
+    val byte2 = buffer[3] as Int + 128
+    return (byte1 shl 8) + byte2
 }
 
 private fun setDataMap(buffer: Array<Any?>, dataMap: Int) {
-    buffer[0] = dataMap
+    val byte1 = dataMap ushr 8
+    val byte2 = dataMap and 255
+    buffer[0] = byte1 - 128
+    buffer[1] = byte2 - 128
 }
 
 private fun setNodeMap(buffer: Array<Any?>, nodeMap: Int) {
-    buffer[1] = nodeMap
+    val byte1 = nodeMap ushr 8
+    val byte2 = nodeMap and 255
+    buffer[2] = byte1 - 128
+    buffer[3] = byte2 - 128
 }
 
 private fun hasDataAt(dataMap: Int, position: Int): Boolean {
@@ -40,7 +52,7 @@ private fun hasNodeAt(nodeMap: Int, position: Int): Boolean {
 }
 
 private fun keyDataIndex(dataMap: Int, position: Int): Int {
-    return ENTRY_SIZE * Integer.bitCount(dataMap and (position - 1)) + 2 // dataMap and nodeMap go first
+    return ENTRY_SIZE * Integer.bitCount(dataMap and (position - 1)) + MAPPINGS_SIZE // dataMap and nodeMap go first
 }
 
 private fun keyNodeIndex(bufferSize: Int, nodeMap: Int, position: Int): Int {
@@ -175,13 +187,18 @@ private fun <K, V> makeNode(keyHash1: Int, key1: K, value1: V, keyHash2: Int, ke
 
     if (setBit1 != setBit2) {
         val newDataMap = (1 shl setBit1) or (1 shl setBit2)
-        if (setBit1 < setBit2) {
-            return arrayOf(newDataMap, 0, key1, value1, key2, value2, mutatorMarker)
+        val buffer = if (setBit1 < setBit2) {
+            arrayOf(0, 0, -128, -128, key1, value1, key2, value2, mutatorMarker)
+        } else {
+            arrayOf(0, 0, -128, -128, key2, value2, key1, value1, mutatorMarker)
         }
-        return arrayOf(newDataMap, 0, key2, value2, key1, value1, mutatorMarker)
+        setDataMap(buffer, newDataMap)
+        return buffer
     }
     val node = makeNode(keyHash1, key1, value1, keyHash2, key2, value2, shift + LOG_MAX_BRANCHING_FACTOR, mutatorMarker)
-    return arrayOf(0, 1 shl setBit1, node, mutatorMarker)
+    val buffer = arrayOf(-128, -128, 0, 0, node, mutatorMarker)
+    setNodeMap(buffer, 1 shl setBit1)
+    return buffer
 }
 
 private fun bufferRemoveDataAtIndex(buffer: Array<Any?>, keyIndex: Int): Array<Any?> {
@@ -467,4 +484,4 @@ internal fun <K, V> node_remove(buffer: Array<Any?>, keyHash: Int, key: K, value
     return buffer
 }
 
-internal val NODE_EMPTY = arrayOf<Any?>(0, 0, null)
+internal val NODE_EMPTY = arrayOf<Any?>(-128, -128, -128, -128, null)

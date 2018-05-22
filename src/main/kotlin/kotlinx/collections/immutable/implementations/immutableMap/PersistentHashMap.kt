@@ -19,11 +19,11 @@ package kotlinx.collections.immutable.implementations.immutableMap
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.mutate
 
-const val MAX_BRANCHING_FACTOR = 32
-const val LOG_MAX_BRANCHING_FACTOR = 5
+const val MAX_BRANCHING_FACTOR = 16
+const val LOG_MAX_BRANCHING_FACTOR = 4
 const val MAX_BRANCHING_FACTOR_MINUS_ONE = MAX_BRANCHING_FACTOR - 1
 const val ENTRY_SIZE = 2
-const val MAX_SHIFT = 30
+const val MAX_SHIFT = 28
 
 
 const val NO_MODIFICATION = 0
