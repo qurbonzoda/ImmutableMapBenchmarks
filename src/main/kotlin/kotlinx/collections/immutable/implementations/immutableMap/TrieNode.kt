@@ -141,8 +141,8 @@ internal class TrieNode<K, V>(var dataMap: Int,
         return TrieNode(dataMap xor position, nodeMap or position, newBuffer)
     }
 
-    private fun mutableMoveDataToNode(position: Int, storedKeyHash: Int, newKeyHash: Int, newKey: K, newValue: V,
-                                      shift: Int, mutator: PersistentHashMapBuilder<*, *>) {
+    private fun mutableMoveDataToNode(position: Int, storedKeyHash: Int, newKeyHash: Int,
+                                      newKey: K, newValue: V, shift: Int, mutator: PersistentHashMapBuilder<*, *>) {
 //        assert(hasDataAt(position))
 //        assert(!hasNodeAt(position))
 
@@ -168,11 +168,12 @@ internal class TrieNode<K, V>(var dataMap: Int,
         val setBit2 = (keyHash2 shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE
 
         if (setBit1 != setBit2) {
-            val newDataMap = (1 shl setBit1) or (1 shl setBit2)
-            if (setBit1 < setBit2) {
-                return TrieNode(newDataMap, 0, arrayOf(key1, value1, key2, value2))
+            val nodeBuffer =  if (setBit1 < setBit2) {
+                arrayOf(key1, value1, key2, value2)
+            } else {
+                arrayOf(key2, value2, key1, value1)
             }
-            return TrieNode(newDataMap, 0, arrayOf(key2, value2, key1, value1))
+            return TrieNode((1 shl setBit1) or (1 shl setBit2), 0, nodeBuffer, mutatorMarker)
         }
         val node = makeNode(keyHash1, key1, value1, keyHash2, key2, value2, shift + LOG_MAX_BRANCHING_FACTOR, mutatorMarker)
         return TrieNode(0, 1 shl setBit1, arrayOf<Any?>(node), mutatorMarker)
@@ -187,7 +188,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
 
     private fun removeDataAt(position: Int): TrieNode<K, V>? {
 //        assert(hasDataAt(position))
-        if (buffer.size == 2 && nodeMap == 0) { return null }
+        if (buffer.size == 2) { return null }
 
         val keyIndex = keyDataIndex(position)
         val newBuffer = bufferRemoveDataAtIndex(keyIndex)
@@ -203,14 +204,14 @@ internal class TrieNode<K, V>(var dataMap: Int,
         return previousValue as V
     }
 
-    private fun collisionRemoveDataAt(i: Int): TrieNode<K, V>? {
-        if (buffer.size == 2 && nodeMap == 0) { return null }
+    private fun collisionRemoveDataAtIndex(i: Int): TrieNode<K, V>? {
+        if (buffer.size == 2) { return null }
 
         val newBuffer = bufferRemoveDataAtIndex(i)
         return TrieNode(0, 0, newBuffer)
     }
 
-    private fun mutableCollisionRemoveDataAt(i: Int): V? {
+    private fun mutableCollisionRemoveDataAtIndex(i: Int): V? {
         val previousValue = buffer[i + 1]
         buffer = bufferRemoveDataAtIndex(i)
         return previousValue as V
@@ -225,7 +226,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
 
     private fun removeNodeAt(position: Int): TrieNode<K, V>? {
 //        assert(hasNodeAt(position))
-        if (buffer.size == 1 && dataMap == 0) { return null }
+        if (buffer.size == 1) { return null }
 
         val nodeIndex = keyNodeIndex(position)
         val newBuffer = bufferRemoveNodeAtIndex(nodeIndex)
@@ -240,14 +241,14 @@ internal class TrieNode<K, V>(var dataMap: Int,
     }
 
     private fun collisionContainsKey(key: K): Boolean {
-        for (i in 0 until buffer.size - 1 step ENTRY_SIZE) {
+        for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) { return true }
         }
         return false
     }
 
     private fun collisionGet(key: K): V? {
-        for (i in 0 until buffer.size - 1 step ENTRY_SIZE) {
+        for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) { return buffer[i + 1] as V }
         }
         return null
@@ -286,7 +287,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
     private fun collisionRemove(key: K): TrieNode<K, V>? {
         for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) {
-                return collisionRemoveDataAt(i)
+                return collisionRemoveDataAtIndex(i)
             }
         }
         return this
@@ -296,7 +297,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
         for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) {
                 mutator.size--
-                return mutableCollisionRemoveDataAt(i)
+                return mutableCollisionRemoveDataAtIndex(i)
             }
         }
         return null
@@ -305,7 +306,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
     private fun collisionRemove(key: K, value: V): TrieNode<K, V>? {
         for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i] && value == buffer[i + 1]) {
-                return collisionRemoveDataAt(i)
+                return collisionRemoveDataAtIndex(i)
             }
         }
         return this
