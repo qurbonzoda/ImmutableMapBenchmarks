@@ -11,18 +11,19 @@ internal const val NULL_HASH_CODE = 0
 
 internal class TrieNode<K, V>(var dataMap: Int,
                               var nodeMap: Int,
-                              var buffer: Array<Any?>) {
-    fun makeMutableFor(mutator: PersistentHashMapBuilder<*, *>): TrieNode<K, V> {
-        if (buffer[buffer.size - 1] === mutator.marker) { return this }
+                              var buffer: Array<Any?>,
+                              var marker: Marker?) {
 
-        val newBuffer = buffer.copyOf()
-        newBuffer[newBuffer.size - 1] = mutator.marker
-        return TrieNode(dataMap, nodeMap, newBuffer)
+    constructor(dataMap: Int, nodeMap: Int, buffer: Array<Any?>) : this(dataMap, nodeMap, buffer, null)
+
+    fun makeMutableFor(mutator: PersistentHashMapBuilder<*, *>): TrieNode<K, V> {
+        if (marker === mutator.marker) { return this }
+        return TrieNode(dataMap, nodeMap, buffer.copyOf(), mutator.marker)
     }
 
     private fun ensureMutableBy(mutator: PersistentHashMapBuilder<*, *>) {
-        if (buffer[buffer.size - 1] !== mutator.marker) {
-            throw IllegalStateException("Marker expected")
+        if (marker !== mutator.marker) {
+            throw IllegalStateException("Markers expected to be same")
         }
     }
 
@@ -39,7 +40,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
     }
 
     private fun keyNodeIndex(position: Int): Int {
-        return buffer.size - 2 - Integer.bitCount(nodeMap and (position - 1))   // last element is marker
+        return buffer.size - 1 - Integer.bitCount(nodeMap and (position - 1))
     }
 
     private fun <K> keyAt(position: Int): K {
@@ -57,15 +58,20 @@ internal class TrieNode<K, V>(var dataMap: Int,
         return buffer[nodeIndex] as TrieNode<K, V>
     }
 
+    private fun bufferPutDataAtIndex(keyIndex: Int, key: K, value: V): Array<Any?> {
+        val newBuffer = arrayOfNulls<Any?>(buffer.size + 2)
+        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
+        System.arraycopy(buffer, keyIndex, newBuffer, keyIndex + 2, buffer.size - keyIndex)
+        newBuffer[keyIndex] = key
+        newBuffer[keyIndex + 1] = value
+        return newBuffer
+    }
+
     private fun putDataAt(position: Int, key: K, value: V): TrieNode<K, V> {
 //        assert(!hasDataAt(position))
 
         val keyIndex = keyDataIndex(position)
-        val newBuffer = arrayOfNulls<Any?>(buffer.size + 2)
-        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
-        System.arraycopy(buffer, keyIndex, newBuffer, keyIndex + 2, buffer.size - 1 - keyIndex) // marker
-        newBuffer[keyIndex] = key
-        newBuffer[keyIndex + 1] = value
+        val newBuffer = bufferPutDataAtIndex(keyIndex, key, value)
         return TrieNode(dataMap or position, nodeMap, newBuffer)
     }
 
@@ -73,12 +79,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
 //        assert(!hasDataAt(position))
 
         val keyIndex = keyDataIndex(position)
-        val newBuffer = arrayOfNulls<Any?>(buffer.size + 2)
-        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
-        System.arraycopy(buffer, keyIndex, newBuffer, keyIndex + 2, buffer.size - keyIndex)
-        newBuffer[keyIndex] = key
-        newBuffer[keyIndex + 1] = value
-        buffer = newBuffer
+        buffer = bufferPutDataAtIndex(keyIndex, key, value)
         dataMap = dataMap or position
     }
 
@@ -118,6 +119,14 @@ internal class TrieNode<K, V>(var dataMap: Int,
         buffer[nodeIndex] = newNode
     }
 
+    private fun bufferMoveDataToNode(keyIndex: Int, nodeIndex: Int): Array<Any?> {
+        val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
+        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
+        System.arraycopy(buffer, keyIndex + 2, newBuffer, keyIndex, nodeIndex - keyIndex)
+        System.arraycopy(buffer, nodeIndex + 2, newBuffer, nodeIndex + 1, buffer.size - nodeIndex - 2)
+        return newBuffer
+    }
+
     private fun moveDataToNode(position: Int, storedKeyHash: Int, newKeyHash: Int,
                                newKey: K, newValue: V, shift: Int): TrieNode<K, V> {
 //        assert(hasDataAt(position))
@@ -125,13 +134,10 @@ internal class TrieNode<K, V>(var dataMap: Int,
 
         val keyIndex = keyDataIndex(position)
         val nodeIndex = keyNodeIndex(position) - 1
-        val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
-        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
-        System.arraycopy(buffer, keyIndex + 2, newBuffer, keyIndex, nodeIndex - keyIndex)
-        System.arraycopy(buffer, nodeIndex + 2, newBuffer, nodeIndex + 1, buffer.size - nodeIndex - 3) // marker
-
+        val newBuffer = bufferMoveDataToNode(keyIndex, nodeIndex)
         newBuffer[nodeIndex] = makeNode(storedKeyHash, buffer[keyIndex] as K, buffer[keyIndex + 1] as V,
                 newKeyHash, newKey, newValue, shift + LOG_MAX_BRANCHING_FACTOR, null)
+
         return TrieNode(dataMap xor position, nodeMap or position, newBuffer)
     }
 
@@ -142,10 +148,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
 
         val keyIndex = keyDataIndex(position)
         val nodeIndex = keyNodeIndex(position) - 1
-        val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
-        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
-        System.arraycopy(buffer, keyIndex + 2, newBuffer, keyIndex, nodeIndex - keyIndex)
-        System.arraycopy(buffer, nodeIndex + 2, newBuffer, nodeIndex + 1, buffer.size - nodeIndex - 2)
+        val newBuffer = bufferMoveDataToNode(keyIndex, nodeIndex)
 
         newBuffer[nodeIndex] = makeNode(storedKeyHash, buffer[keyIndex] as K, buffer[keyIndex + 1] as V,
                 newKeyHash, newKey, newValue, shift + LOG_MAX_BRANCHING_FACTOR, mutator.marker)
@@ -158,7 +161,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
     private fun makeNode(keyHash1: Int, key1: K, value1: V, keyHash2: Int, key2: K, value2: V, shift: Int, mutatorMarker: Marker?): TrieNode<K, V> {
         if (shift > MAX_SHIFT) {
 //            assert(key1 != key2)
-            return TrieNode(0, 0, arrayOf(key1, value1, key2, value2, mutatorMarker))
+            return TrieNode(0, 0, arrayOf(key1, value1, key2, value2), mutatorMarker)
         }
 
         val setBit1 = (keyHash1 shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE
@@ -167,22 +170,15 @@ internal class TrieNode<K, V>(var dataMap: Int,
         if (setBit1 != setBit2) {
             val newDataMap = (1 shl setBit1) or (1 shl setBit2)
             if (setBit1 < setBit2) {
-                return TrieNode(newDataMap, 0, arrayOf(key1, value1, key2, value2, mutatorMarker))
+                return TrieNode(newDataMap, 0, arrayOf(key1, value1, key2, value2))
             }
-            return TrieNode(newDataMap, 0, arrayOf(key2, value2, key1, value1, mutatorMarker))
+            return TrieNode(newDataMap, 0, arrayOf(key2, value2, key1, value1))
         }
         val node = makeNode(keyHash1, key1, value1, keyHash2, key2, value2, shift + LOG_MAX_BRANCHING_FACTOR, mutatorMarker)
-        return TrieNode(0, 1 shl setBit1, arrayOf(node, mutatorMarker))
+        return TrieNode(0, 1 shl setBit1, arrayOf<Any?>(node), mutatorMarker)
     }
 
     private fun bufferRemoveDataAtIndex(keyIndex: Int): Array<Any?> {
-        val newBuffer = arrayOfNulls<Any?>(buffer.size - 2)
-        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
-        System.arraycopy(buffer, keyIndex + 2, newBuffer, keyIndex, buffer.size - keyIndex - 3) // marker
-        return newBuffer
-    }
-
-    private fun mutableBufferRemoveDataAtIndex(keyIndex: Int): Array<Any?> {
         val newBuffer = arrayOfNulls<Any?>(buffer.size - 2)
         System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
         System.arraycopy(buffer, keyIndex + 2, newBuffer, keyIndex, buffer.size - keyIndex - 2)
@@ -191,7 +187,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
 
     private fun removeDataAt(position: Int): TrieNode<K, V>? {
 //        assert(hasDataAt(position))
-        if (buffer.size == 3 && nodeMap == 0) { return null }
+        if (buffer.size == 2 && nodeMap == 0) { return null }
 
         val keyIndex = keyDataIndex(position)
         val newBuffer = bufferRemoveDataAtIndex(keyIndex)
@@ -202,13 +198,13 @@ internal class TrieNode<K, V>(var dataMap: Int,
 //        assert(hasDataAt(position))
         val keyIndex = keyDataIndex(position)
         val previousValue = buffer[keyIndex + 1]
-        buffer = mutableBufferRemoveDataAtIndex(keyIndex)
+        buffer = bufferRemoveDataAtIndex(keyIndex)
         dataMap = dataMap xor position
         return previousValue as V
     }
 
     private fun collisionRemoveDataAt(i: Int): TrieNode<K, V>? {
-        if (buffer.size == 3 && nodeMap == 0) { return null }
+        if (buffer.size == 2 && nodeMap == 0) { return null }
 
         val newBuffer = bufferRemoveDataAtIndex(i)
         return TrieNode(0, 0, newBuffer)
@@ -216,28 +212,30 @@ internal class TrieNode<K, V>(var dataMap: Int,
 
     private fun mutableCollisionRemoveDataAt(i: Int): V? {
         val previousValue = buffer[i + 1]
-        buffer = mutableBufferRemoveDataAtIndex(i)
+        buffer = bufferRemoveDataAtIndex(i)
         return previousValue as V
+    }
+
+    private fun bufferRemoveNodeAtIndex(nodeIndex: Int): Array<Any?> {
+        val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
+        System.arraycopy(buffer, 0, newBuffer, 0, nodeIndex)
+        System.arraycopy(buffer, nodeIndex + 1, newBuffer, nodeIndex, buffer.size - nodeIndex - 1)
+        return newBuffer
     }
 
     private fun removeNodeAt(position: Int): TrieNode<K, V>? {
 //        assert(hasNodeAt(position))
-        if (buffer.size == 2 && dataMap == 0) { return null } // marker
+        if (buffer.size == 1 && dataMap == 0) { return null }
 
-        val keyIndex = keyNodeIndex(position)
-        val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
-        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
-        System.arraycopy(buffer, keyIndex + 1, newBuffer, keyIndex, buffer.size - keyIndex - 2) // marker
+        val nodeIndex = keyNodeIndex(position)
+        val newBuffer = bufferRemoveNodeAtIndex(nodeIndex)
         return TrieNode(dataMap, nodeMap xor position, newBuffer)
     }
 
     private fun mutableRemoveNodeAt(position: Int) {
 //        assert(hasNodeAt(position))
-        val keyIndex = keyNodeIndex(position)
-        val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
-        System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
-        System.arraycopy(buffer, keyIndex + 1, newBuffer, keyIndex, buffer.size - keyIndex - 1)
-        buffer = newBuffer
+        val nodeIndex = keyNodeIndex(position)
+        buffer = bufferRemoveNodeAtIndex(nodeIndex)
         nodeMap = nodeMap xor position
     }
 
@@ -256,7 +254,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
     }
 
     private fun collisionPut(key: K, value: V, modification: ModificationWrapper): TrieNode<K, V> {
-        for (i in 0 until buffer.size - 1 step ENTRY_SIZE) {
+        for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) {
                 if (value === buffer[i + 1]) {
                     return this
@@ -264,20 +262,16 @@ internal class TrieNode<K, V>(var dataMap: Int,
                 modification.value = UPDATE_VALUE
                 val newBuffer = buffer.copyOf()
                 newBuffer[i + 1] = value
-                newBuffer[newBuffer.size - 1] = null // marker
                 return TrieNode(0, 0, newBuffer)
             }
         }
         modification.value = PUT_KEY_VALUE
-        val newBuffer = arrayOfNulls<Any?>(buffer.size + 2)
-        System.arraycopy(buffer, 0, newBuffer, 2, buffer.size - 1) // marker
-        newBuffer[0] = key
-        newBuffer[1] = value
+        val newBuffer = bufferPutDataAtIndex(0, key, value)
         return TrieNode(0, 0, newBuffer)
     }
 
     private fun mutableCollisionPut(key: K, value: V, mutator: PersistentHashMapBuilder<*, *>): V? {
-        for (i in 0 until buffer.size - 1 step ENTRY_SIZE) {
+        for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) {
                 val previousValue = buffer[i + 1]
                 buffer[i + 1] = value
@@ -285,16 +279,12 @@ internal class TrieNode<K, V>(var dataMap: Int,
             }
         }
         mutator.size++
-        val newBuffer = arrayOfNulls<Any?>(buffer.size + 2)
-        System.arraycopy(buffer, 0, newBuffer, 2, buffer.size)
-        newBuffer[0] = key
-        newBuffer[1] = value
-        buffer = newBuffer
+        buffer = bufferPutDataAtIndex(0, key, value)
         return null
     }
 
     private fun collisionRemove(key: K): TrieNode<K, V>? {
-        for (i in 0 until buffer.size - 1 step ENTRY_SIZE) {
+        for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) {
                 return collisionRemoveDataAt(i)
             }
@@ -303,7 +293,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
     }
 
     private fun mutableCollisionRemove(key: K, mutator: PersistentHashMapBuilder<*, *>): V? {
-        for (i in 0 until buffer.size - 1 step ENTRY_SIZE) {
+        for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i]) {
                 mutator.size--
                 return mutableCollisionRemoveDataAt(i)
@@ -313,7 +303,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
     }
 
     private fun collisionRemove(key: K, value: V): TrieNode<K, V>? {
-        for (i in 0 until buffer.size - 1 step ENTRY_SIZE) {
+        for (i in 0 until buffer.size step ENTRY_SIZE) {
             if (key == buffer[i] && value == buffer[i + 1]) {
                 return collisionRemoveDataAt(i)
             }
@@ -467,7 +457,7 @@ internal class TrieNode<K, V>(var dataMap: Int,
             } else {
                 targetNode.mutableRemove(keyHash, key, shift + LOG_MAX_BRANCHING_FACTOR, mutator)
             }
-            if (targetNode.buffer.size == 1) { mutableRemoveNodeAt(keyPosition) }
+            if (targetNode.buffer.isEmpty()) { mutableRemoveNodeAt(keyPosition) }
             return previousValue
         }
 
@@ -503,6 +493,6 @@ internal class TrieNode<K, V>(var dataMap: Int,
     }
 
     internal companion object {
-        internal val EMPTY = TrieNode<Nothing, Nothing>(0, 0, arrayOf(null))
+        internal val EMPTY = TrieNode<Nothing, Nothing>(0, 0, emptyArray())
     }
 }

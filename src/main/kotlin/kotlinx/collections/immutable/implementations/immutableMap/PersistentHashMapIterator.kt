@@ -20,7 +20,7 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
         if (path[pathIndex].hashNextNode()) { // requires canonicalization (if)
             val node = path[pathIndex].currentNode()
             if (pathIndex == TRIE_MAX_HEIGHT - 1) {
-                path[pathIndex + 1].reset(node.buffer, node.buffer.size - 1)
+                path[pathIndex + 1].reset(node.buffer, node.buffer.size)
             } else {
                 path[pathIndex + 1].reset(node.buffer, 2 * Integer.bitCount(node.dataMap))
             }
@@ -119,7 +119,7 @@ internal class TrieNodeIterator<out K, out V> {
     }
 
     fun hashNextNode(): Boolean {
-        return index < buffer.size - 1
+        return index < buffer.size
     }
 
     fun moveToNextNode() {
