@@ -26,12 +26,12 @@ internal class PersistentHashMapBuilder<K, V>(private var node: TrieNode<K, V>,
 
     override fun build(): ImmutableMap<K, V> {
         marker = Marker()
-        throw AssertionError()
-//        return PersistentHashMap(node, size)
+        return PersistentHashMap(node, size)
     }
 
     override fun containsKey(key: K): Boolean {
-        return get(key) != null     // what if value is optional?
+        val keyHash = key?.hashCode() ?: NULL_HASH_CODE
+        return node.containsKey(keyHash, key, 0)
     }
 
     override fun containsValue(value: V): Boolean {
@@ -39,11 +39,7 @@ internal class PersistentHashMapBuilder<K, V>(private var node: TrieNode<K, V>,
     }
 
     override fun get(key: K): V? {
-        if (key == null) {
-            throw IllegalArgumentException()
-        }
-
-        val keyHash = key.hashCode()
+        val keyHash = key?.hashCode() ?: NULL_HASH_CODE
         return node.get(keyHash, key, 0)
     }
 
@@ -61,6 +57,7 @@ internal class PersistentHashMapBuilder<K, V>(private var node: TrieNode<K, V>,
             }
             return entries
         }
+
     override val keys: MutableSet<K>
         get() {
             val iterator = PersistentHashMapIterator(node)
@@ -87,11 +84,7 @@ internal class PersistentHashMapBuilder<K, V>(private var node: TrieNode<K, V>,
     }
 
     override fun put(key: K, value: @UnsafeVariance V): V? {
-        if (key == null) {
-            throw IllegalArgumentException()
-        }
-
-        val keyHash = key.hashCode()
+        val keyHash = key?.hashCode() ?: NULL_HASH_CODE
         node = node.makeMutableFor(this)
         return node.mutablePut(keyHash, key, value, 0, this)
     }
@@ -101,11 +94,7 @@ internal class PersistentHashMapBuilder<K, V>(private var node: TrieNode<K, V>,
     }
 
     override fun remove(key: K): V? {
-        if (key == null) {
-            throw IllegalArgumentException()
-        }
-
-        val keyHash = key.hashCode()
+        val keyHash = key?.hashCode() ?: NULL_HASH_CODE
         node = node.makeMutableFor(this)
         return node.mutableRemove(keyHash, key, 0, this)
     }

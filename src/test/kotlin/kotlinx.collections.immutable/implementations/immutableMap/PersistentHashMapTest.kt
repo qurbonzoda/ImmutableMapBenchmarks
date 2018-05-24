@@ -49,8 +49,6 @@ class KeyGenerator<K: Comparable<K>>(private val hashCodeUpperBound: Int) {
 
 
 class PersistentHashMapTest {
-    // TODO: add tests for ImmutableVector of optional values. e.g. ImmutableVector<Int?>
-
     @Test
     fun isEmptyTests() {
         var map = persistentHashMapOf<Int, String>()
@@ -287,22 +285,28 @@ class PersistentHashMapTest {
         repeat(times = 1) {
 
             val random = Random()
-            val mutableMaps = List(10) { mutableMapOf<KeyWrapper<Int>, Int>() }
-            val immutableMaps = MutableList(10) { persistentHashMapOf<KeyWrapper<Int>, Int>() }
+            val mutableMaps = List(10) { mutableMapOf<KeyWrapper<Int>?, Int?>() }
+            val immutableMaps = MutableList(10) { persistentHashMapOf<KeyWrapper<Int>?, Int?>() }
 
             val operationCount = 2000000
-            val hashCodes = List(operationCount / 2) { random.nextInt() }
+            val hashCodes = List(operationCount / 3) { random.nextInt() }
             repeat(times = operationCount) {
                 val index = random.nextInt(mutableMaps.size)
                 val mutableMap = mutableMaps[index]
                 val immutableMap = immutableMaps[index]
 
+                val key = if (random.nextDouble() < 0.001) {
+                    null
+                } else {
+                    val hashCodeIndexIndex = random.nextInt(hashCodes.size)
+                    KeyWrapper(random.nextInt(), hashCodes[hashCodeIndexIndex])
+                }
+
                 val operationType = random.nextDouble()
-                val hashCodeIndexIndex = random.nextInt(hashCodes.size)
-                val key = KeyWrapper(random.nextInt(), hashCodes[hashCodeIndexIndex])
 
                 val shouldRemove = operationType < 0.2
                 val shouldRemoveEntry = !shouldRemove && operationType < 0.4
+                val shouldPutNull = !shouldRemove && !shouldRemoveEntry && operationType < 0.45
 
                 val newImmutableMap = when {
                     shouldRemove -> {
@@ -313,6 +317,10 @@ class PersistentHashMapTest {
                         val value = random.nextInt(5)
                         mutableMap.remove(key, value)
                         immutableMap.remove(key, value)
+                    }
+                    shouldPutNull -> {
+                        mutableMap[key] = null
+                        immutableMap.put(key, null)
                     }
                     else -> {
                         val value = random.nextInt(5)
