@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
             .warmupTime(TimeValue.milliseconds(2000))
             .measurementTime(TimeValue.milliseconds(2000))
             .param("implementation", *args)
-//            .param("listSize", BM_1000000)
+            .param("listSize", BM_100000, BM_1000000)
             .addProfiler("gc")
 
     val runResults = Runner(options.build()).run()
