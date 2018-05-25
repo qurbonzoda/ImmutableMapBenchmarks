@@ -43,18 +43,15 @@ internal class TrieNode<K, V>(var dataMap: Int,
         return buffer.size - 1 - Integer.bitCount(nodeMap and (position - 1))
     }
 
-    private fun <K> keyAt(position: Int): K {
-        val keyIndex = keyDataIndex(position)
+    private fun keyAtIndex(keyIndex: Int): K {
         return buffer[keyIndex] as K
     }
 
-    private fun <V> valueAt(position: Int): V {
-        val valueIndex = keyDataIndex(position) + 1
-        return buffer[valueIndex] as V
+    private fun valueAtKeyIndex(keyIndex: Int): V {
+        return buffer[keyIndex + 1] as V
     }
 
-    private fun nodeAt(position: Int): TrieNode<K, V> {
-        val nodeIndex = keyNodeIndex(position)
+    private fun nodeAtIndex(nodeIndex: Int): TrieNode<K, V> {
         return buffer[nodeIndex] as TrieNode<K, V>
     }
 
@@ -83,82 +80,71 @@ internal class TrieNode<K, V>(var dataMap: Int,
         dataMap = dataMap or position
     }
 
-    private fun updateValueAt(position: Int, value: V): TrieNode<K, V> {
-//        assert(hasDataAt(position))
-
-        val keyIndex = keyDataIndex(position)
+    private fun updateValueAtIndex(keyIndex: Int, value: V): TrieNode<K, V> {
 //        assert(buffer[keyIndex + 1] !== value)
+
         val newBuffer = buffer.copyOf()
         newBuffer[keyIndex + 1] = value
         return TrieNode(dataMap, nodeMap, newBuffer)
     }
 
-    private fun mutableUpdateValueAt(position: Int, value: V): V {
-//        assert(hasDataAt(position))
-
-        val keyIndex = keyDataIndex(position)
+    private fun mutableUpdateValueAtIndex(keyIndex: Int, value: V): V {
         val previousValue = buffer[keyIndex + 1]
         buffer[keyIndex + 1] = value
         return previousValue as V
     }
 
-    private fun updateNodeAt(position: Int, newNode: TrieNode<K, V>): TrieNode<K, V> {
-//        assert(hasNodeAt(position))
-
-        val nodeIndex = keyNodeIndex(position)
+    private fun updateNodeAtIndex(nodeIndex: Int, newNode: TrieNode<K, V>): TrieNode<K, V> {
 //        assert(buffer[nodeIndex] !== newNode)
+
         val newBuffer = buffer.copyOf()
         newBuffer[nodeIndex] = newNode
         return TrieNode(dataMap, nodeMap, newBuffer)
     }
 
-    private fun mutableUpdateNodeAt(position: Int, newNode: TrieNode<K, V>) {
-//        assert(hasNodeAt(position))
-
-        val nodeIndex = keyNodeIndex(position)
+    private fun mutableUpdateNodeAtIndex(nodeIndex: Int, newNode: TrieNode<K, V>) {
         buffer[nodeIndex] = newNode
     }
 
-    private fun bufferMoveDataToNode(keyIndex: Int, nodeIndex: Int): Array<Any?> {
+    private fun bufferMoveDataToNode(keyIndex: Int, position: Int, newKeyHash: Int,
+                                     newKey: K, newValue: V, shift: Int, mutatorMarker: Marker?): Array<Any?> {
+        val storedKey = keyAtIndex(keyIndex)
+        val storedKeyHash = storedKey?.hashCode() ?: NULL_HASH_CODE
+        val storedValue = valueAtKeyIndex(keyIndex)
+        val newNode = makeNode(storedKeyHash, storedKey, storedValue,
+                newKeyHash, newKey, newValue, shift + LOG_MAX_BRANCHING_FACTOR, mutatorMarker)
+
+        val nodeIndex = keyNodeIndex(position) - 1
         val newBuffer = arrayOfNulls<Any?>(buffer.size - 1)
         System.arraycopy(buffer, 0, newBuffer, 0, keyIndex)
         System.arraycopy(buffer, keyIndex + 2, newBuffer, keyIndex, nodeIndex - keyIndex)
         System.arraycopy(buffer, nodeIndex + 2, newBuffer, nodeIndex + 1, buffer.size - nodeIndex - 2)
+
+        newBuffer[nodeIndex] = newNode
         return newBuffer
     }
 
-    private fun moveDataToNode(position: Int, storedKeyHash: Int, newKeyHash: Int,
+    private fun moveDataToNode(keyIndex: Int, position: Int, newKeyHash: Int,
                                newKey: K, newValue: V, shift: Int): TrieNode<K, V> {
 //        assert(hasDataAt(position))
 //        assert(!hasNodeAt(position))
 
-        val keyIndex = keyDataIndex(position)
-        val nodeIndex = keyNodeIndex(position) - 1
-        val newBuffer = bufferMoveDataToNode(keyIndex, nodeIndex)
-        newBuffer[nodeIndex] = makeNode(storedKeyHash, buffer[keyIndex] as K, buffer[keyIndex + 1] as V,
-                newKeyHash, newKey, newValue, shift + LOG_MAX_BRANCHING_FACTOR, null)
-
+        val newBuffer = bufferMoveDataToNode(keyIndex, position, newKeyHash, newKey, newValue, shift, null)
         return TrieNode(dataMap xor position, nodeMap or position, newBuffer)
     }
 
-    private fun mutableMoveDataToNode(position: Int, storedKeyHash: Int, newKeyHash: Int,
+    private fun mutableMoveDataToNode(keyIndex: Int, position: Int, newKeyHash: Int,
                                       newKey: K, newValue: V, shift: Int, mutator: PersistentHashMapBuilder<*, *>) {
 //        assert(hasDataAt(position))
 //        assert(!hasNodeAt(position))
 
-        val keyIndex = keyDataIndex(position)
-        val nodeIndex = keyNodeIndex(position) - 1
-        val newBuffer = bufferMoveDataToNode(keyIndex, nodeIndex)
-
-        newBuffer[nodeIndex] = makeNode(storedKeyHash, buffer[keyIndex] as K, buffer[keyIndex + 1] as V,
-                newKeyHash, newKey, newValue, shift + LOG_MAX_BRANCHING_FACTOR, mutator.marker)
-
-        buffer = newBuffer
+        buffer = bufferMoveDataToNode(keyIndex, position, newKeyHash, newKey, newValue, shift, mutator.marker)
         dataMap = dataMap xor position
         nodeMap = nodeMap or position
     }
 
-    private fun makeNode(keyHash1: Int, key1: K, value1: V, keyHash2: Int, key2: K, value2: V, shift: Int, mutatorMarker: Marker?): TrieNode<K, V> {
+    private fun makeNode(keyHash1: Int, key1: K, value1: V,
+                         keyHash2: Int, key2: K, value2: V, shift: Int, mutatorMarker: Marker?): TrieNode<K, V> {
         if (shift > MAX_SHIFT) {
 //            assert(key1 != key2)
             return TrieNode(0, 0, arrayOf(key1, value1, key2, value2), mutatorMarker)
@@ -186,18 +172,16 @@ internal class TrieNode<K, V>(var dataMap: Int,
         return newBuffer
     }
 
-    private fun removeDataAt(position: Int): TrieNode<K, V>? {
+    private fun removeDataAtIndex(keyIndex: Int, position: Int): TrieNode<K, V>? {
 //        assert(hasDataAt(position))
         if (buffer.size == 2) { return null }
 
-        val keyIndex = keyDataIndex(position)
         val newBuffer = bufferRemoveDataAtIndex(keyIndex)
         return TrieNode(dataMap xor position, nodeMap, newBuffer)
     }
 
-    private fun mutableRemoveDataAt(position: Int): V {
+    private fun mutableRemoveDataAtIndex(keyIndex: Int, position: Int): V {
 //        assert(hasDataAt(position))
-        val keyIndex = keyDataIndex(position)
         val previousValue = buffer[keyIndex + 1]
         buffer = bufferRemoveDataAtIndex(keyIndex)
         dataMap = dataMap xor position
@@ -224,18 +208,16 @@ internal class TrieNode<K, V>(var dataMap: Int,
         return newBuffer
     }
 
-    private fun removeNodeAt(position: Int): TrieNode<K, V>? {
+    private fun removeNodeAtIndex(nodeIndex: Int, position: Int): TrieNode<K, V>? {
 //        assert(hasNodeAt(position))
         if (buffer.size == 1) { return null }
 
-        val nodeIndex = keyNodeIndex(position)
         val newBuffer = bufferRemoveNodeAtIndex(nodeIndex)
         return TrieNode(dataMap, nodeMap xor position, newBuffer)
     }
 
-    private fun mutableRemoveNodeAt(position: Int) {
+    private fun mutableRemoveNodeAtIndex(nodeIndex: Int, position: Int) {
 //        assert(hasNodeAt(position))
-        val nodeIndex = keyNodeIndex(position)
         buffer = bufferRemoveNodeAtIndex(nodeIndex)
         nodeMap = nodeMap xor position
     }
@@ -316,10 +298,10 @@ internal class TrieNode<K, V>(var dataMap: Int,
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
-            return key == keyAt<K>(keyPosition)
+            return key == keyAtIndex(keyDataIndex(keyPosition))
         }
         if (hasNodeAt(keyPosition)) { // key is in node
-            val targetNode = nodeAt(keyPosition)
+            val targetNode = nodeAtIndex(keyNodeIndex(keyPosition))
             if (shift == MAX_SHIFT) {
                 return targetNode.collisionContainsKey(key)
             }
@@ -334,14 +316,15 @@ internal class TrieNode<K, V>(var dataMap: Int,
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
-            val storedKey = keyAt<K>(keyPosition)
-            if (key == storedKey) {
-                return valueAt(keyPosition)
+            val keyIndex = keyDataIndex(keyPosition)
+
+            if (key == keyAtIndex(keyIndex)) {
+                return valueAtKeyIndex(keyIndex)
             }
             return null
         }
         if (hasNodeAt(keyPosition)) { // key is in node
-            val targetNode = nodeAt(keyPosition)
+            val targetNode = nodeAtIndex(keyNodeIndex(keyPosition))
             if (shift == MAX_SHIFT) {
                 return targetNode.collisionGet(key)
             }
@@ -356,25 +339,28 @@ internal class TrieNode<K, V>(var dataMap: Int,
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
-            val storedKey = keyAt<K>(keyPosition)
-            if (key == storedKey) {
-                if (valueAt<V>(keyPosition) === value) { return this }
+            val keyIndex = keyDataIndex(keyPosition)
+
+            if (key == keyAtIndex(keyIndex)) {
+                if (valueAtKeyIndex(keyIndex) === value) { return this }
+
                 modification.value = UPDATE_VALUE
-                return updateValueAt(keyPosition, value)
+                return updateValueAtIndex(keyIndex, value)
             }
             modification.value = PUT_KEY_VALUE
-            val storedKeyHash = storedKey?.hashCode() ?: NULL_HASH_CODE
-            return moveDataToNode(keyPosition, storedKeyHash, keyHash, key, value, shift)
+            return moveDataToNode(keyIndex, keyPosition, keyHash, key, value, shift)
         }
         if (hasNodeAt(keyPosition)) { // key is in node
-            val targetNode = nodeAt(keyPosition)
+            val nodeIndex = keyNodeIndex(keyPosition)
+
+            val targetNode = nodeAtIndex(nodeIndex)
             val newNode = if (shift == MAX_SHIFT) {
                 targetNode.collisionPut(key, value, modification)
             } else {
                 targetNode.put(keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR, modification)
             }
             if (targetNode === newNode) { return this }
-            return updateNodeAt(keyPosition, newNode)
+            return updateNodeAtIndex(nodeIndex, newNode)
         }
 
         // key is absent
@@ -387,18 +373,20 @@ internal class TrieNode<K, V>(var dataMap: Int,
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
-            val storedKey = keyAt<K>(keyPosition)
-            if (key == storedKey) {
-                return mutableUpdateValueAt(keyPosition, value)
+            val keyIndex = keyDataIndex(keyPosition)
+
+            if (key == keyAtIndex(keyIndex)) {
+                return mutableUpdateValueAtIndex(keyIndex, value)
             }
             mutator.size++
-            val storedKeyHash = storedKey?.hashCode() ?: NULL_HASH_CODE
-            mutableMoveDataToNode(keyPosition, storedKeyHash, keyHash, key, value, shift, mutator)
+            mutableMoveDataToNode(keyIndex, keyPosition, keyHash, key, value, shift, mutator)
             return null
         }
         if (hasNodeAt(keyPosition)) { // key is in node
-            val targetNode = nodeAt(keyPosition).makeMutableFor(mutator)
-            mutableUpdateNodeAt(keyPosition, targetNode)
+            val nodeIndex = keyNodeIndex(keyPosition)
+
+            val targetNode = nodeAtIndex(nodeIndex).makeMutableFor(mutator)
+            mutableUpdateNodeAtIndex(nodeIndex, targetNode)
             return if (shift == MAX_SHIFT) {
                 targetNode.mutableCollisionPut(key, value, mutator)
             } else {
@@ -416,22 +404,25 @@ internal class TrieNode<K, V>(var dataMap: Int,
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
-            val storedKey = keyAt<K>(keyPosition)
-            if (key == storedKey) {
-                return removeDataAt(keyPosition)
+            val keyIndex = keyDataIndex(keyPosition)
+
+            if (key == keyAtIndex(keyIndex)) {
+                return removeDataAtIndex(keyIndex, keyPosition)
             }
             return this
         }
         if (hasNodeAt(keyPosition)) { // key is in node
-            val targetNode = nodeAt(keyPosition)
+            val nodeIndex = keyNodeIndex(keyPosition)
+
+            val targetNode = nodeAtIndex(nodeIndex)
             val newNode = if (shift == MAX_SHIFT) {
                 targetNode.collisionRemove(key)
             } else {
                 targetNode.remove(keyHash, key, shift + LOG_MAX_BRANCHING_FACTOR)
             }
             if (targetNode === newNode) { return this }
-            if (newNode == null) { return removeNodeAt(keyPosition) }
-            return updateNodeAt(keyPosition, newNode)
+            if (newNode == null) { return removeNodeAtIndex(nodeIndex, keyPosition) }
+            return updateNodeAtIndex(nodeIndex, newNode)
         }
 
         // key is absent
@@ -443,22 +434,25 @@ internal class TrieNode<K, V>(var dataMap: Int,
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
-            val storedKey = keyAt<K>(keyPosition)
-            if (key == storedKey) {
+            val keyIndex = keyDataIndex(keyPosition)
+
+            if (key == keyAtIndex(keyIndex)) {
                 mutator.size--
-                return mutableRemoveDataAt(keyPosition)
+                return mutableRemoveDataAtIndex(keyIndex, keyPosition)
             }
             return null
         }
         if (hasNodeAt(keyPosition)) { // key is in node
-            val targetNode = nodeAt(keyPosition).makeMutableFor(mutator)
-            mutableUpdateNodeAt(keyPosition, targetNode)
+            val nodeIndex = keyNodeIndex(keyPosition)
+
+            val targetNode = nodeAtIndex(nodeIndex).makeMutableFor(mutator)
+            mutableUpdateNodeAtIndex(nodeIndex, targetNode)
             val previousValue = if (shift == MAX_SHIFT) {
                 targetNode.mutableCollisionRemove(key, mutator)
             } else {
                 targetNode.mutableRemove(keyHash, key, shift + LOG_MAX_BRANCHING_FACTOR, mutator)
             }
-            if (targetNode.buffer.isEmpty()) { mutableRemoveNodeAt(keyPosition) }
+            if (targetNode.buffer.isEmpty()) { mutableRemoveNodeAtIndex(nodeIndex, keyPosition) }
             return previousValue
         }
 
@@ -470,23 +464,25 @@ internal class TrieNode<K, V>(var dataMap: Int,
         val keyPosition = 1 shl ((keyHash shr shift) and MAX_BRANCHING_FACTOR_MINUS_ONE)
 
         if (hasDataAt(keyPosition)) { // key is directly in buffer
-            val storedKey = keyAt<K>(keyPosition)
-            val oldValue = valueAt<V>(keyPosition)
-            if (key == storedKey && value == oldValue) {
-                return removeDataAt(keyPosition)
+            val keyIndex = keyDataIndex(keyPosition)
+
+            if (key == keyAtIndex(keyIndex) && value == valueAtKeyIndex(keyIndex)) {
+                return removeDataAtIndex(keyIndex, keyPosition)
             }
             return this
         }
         if (hasNodeAt(keyPosition)) { // key is in node
-            val targetNode = nodeAt(keyPosition)
+            val nodeIndex = keyNodeIndex(keyPosition)
+
+            val targetNode = nodeAtIndex(nodeIndex)
             val newNode = if (shift == MAX_SHIFT) {
                 targetNode.collisionRemove(key, value)
             } else {
                 targetNode.remove(keyHash, key, value, shift + LOG_MAX_BRANCHING_FACTOR)
             }
             if (targetNode === newNode) { return this }
-            if (newNode == null) { return removeNodeAt(keyPosition) }
-            return updateNodeAt(keyPosition, newNode)
+            if (newNode == null) { return removeNodeAtIndex(nodeIndex, keyPosition) }
+            return updateNodeAtIndex(nodeIndex, newNode)
         }
 
         // key is absent
