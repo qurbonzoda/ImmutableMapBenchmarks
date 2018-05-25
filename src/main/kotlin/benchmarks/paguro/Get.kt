@@ -15,8 +15,7 @@ import java.util.concurrent.TimeUnit
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Thread)
 open class Get {
-    @Param(BM_1, BM_4, BM_10, BM_15, BM_20, BM_25, BM_50,
-            BM_100, BM_1000, BM_10000, BM_100000, BM_1000000)
+    @Param(BM_1, BM_10, BM_100, BM_1000, BM_10000, BM_100000, BM_1000000)
     var listSize: Int = 0
 
     @Param(PAGURO_HASH_MAP, PAGURO_TREE_MAP)
