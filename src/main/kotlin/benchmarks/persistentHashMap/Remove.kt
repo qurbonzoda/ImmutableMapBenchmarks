@@ -22,7 +22,7 @@ open class Remove {
     var implementation = ""
 
     private val emptyMap = persistentHashMapOf<KeyWrapper<Int>, String>()
-    private val random = Random()
+    private val random = Random(40)
 
     private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
     private val randomKeys = mutableListOf<KeyWrapper<Int>>()

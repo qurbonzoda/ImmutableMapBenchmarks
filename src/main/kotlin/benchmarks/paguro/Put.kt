@@ -22,7 +22,7 @@ open class Put {
     var implementation = ""
 
     private var emptyMap: BaseMap<KeyWrapper<Int>, String> = emptyPMap(PAGURO_HASH_MAP)
-    private val random = Random()
+    private val random = Random(40)
 
     private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
     private var randomKeys = mutableListOf<KeyWrapper<Int>>()

@@ -20,7 +20,7 @@ open class Remove {
     @Param(PAGURO_HASH_MAP, PAGURO_TREE_MAP)
     var implementation = ""
 
-    private val random = Random()
+    private val random = Random(40)
 
     private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
     private val randomKeys = mutableListOf<KeyWrapper<Int>>()

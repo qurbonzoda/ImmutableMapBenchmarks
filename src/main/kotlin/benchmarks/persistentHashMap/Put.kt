@@ -23,7 +23,7 @@ open class Put {
     var implementation = ""
 
     private val emptyMap: ImmutableMap<KeyWrapper<Int>, String> = persistentHashMapOf()
-    private val random = Random()
+    private val random = Random(40)
 
     private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
     private var randomKeys = mutableListOf<KeyWrapper<Int>>()

@@ -23,7 +23,7 @@ open class Get {
             JAVASLANG_HASH_MAP, JAVASLANG_TREE_MAP, PCOLLECTIONS)
     var implementation = ""
 
-    private val random = Random()
+    private val random = Random(40)
 
     private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
     private val randomKeys = mutableListOf<KeyWrapper<Int>>()

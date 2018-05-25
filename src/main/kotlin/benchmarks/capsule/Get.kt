@@ -21,7 +21,7 @@ open class Get {
     @Param(CAPSULE_TRIE_MAP)
     var implementation = ""
 
-    private val random = Random()
+    private val random = Random(40)
 
     private val distinctKeys = mutableListOf<KeyWrapper<Int>>()
     private val randomKeys = mutableListOf<KeyWrapper<Int>>()
