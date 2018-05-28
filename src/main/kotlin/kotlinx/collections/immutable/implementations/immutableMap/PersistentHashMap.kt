@@ -80,13 +80,6 @@ internal class PersistentHashMap<K, out V>(private val node: TrieNode<K, V>,
         val keyHash = key?.hashCode() ?: NULL_HASH_CODE
         val modification = ModificationWrapper()
         val newNode = node.put(keyHash, key, value, 0, modification)
-
-//        if (node === newNode) {
-//            assert(modification.value == NO_MODIFICATION)
-//        } else {
-//            assert(modification.value != NO_MODIFICATION)
-//        }
-
         if (node === newNode) { return this }
         val sizeDelta = if (modification.value == PUT_KEY_VALUE) 1 else 0
         return PersistentHashMap(newNode, size + sizeDelta)

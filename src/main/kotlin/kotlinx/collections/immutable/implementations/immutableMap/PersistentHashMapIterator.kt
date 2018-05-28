@@ -14,36 +14,33 @@ internal class PersistentHashMapIterator<out K, out V>(node: TrieNode<K, V>) {
     }
 
     private fun moveToNextNodeWithData(pathIndex: Int): Int {
-        if (path[pathIndex].hashNextEntry()) {
+        if (path[pathIndex].hasNextEntry()) {
             return pathIndex
         }
-        if (path[pathIndex].hashNextNode()) { // requires canonicalization (if)
+        if (path[pathIndex].hasNextNode()) {
             val node = path[pathIndex].currentNode()
             if (pathIndex == TRIE_MAX_HEIGHT - 1) {
                 path[pathIndex + 1].reset(node.buffer, node.buffer.size)
             } else {
                 path[pathIndex + 1].reset(node.buffer, 2 * Integer.bitCount(node.dataMap))
             }
-            val result = moveToNextNodeWithData(pathIndex + 1)
-            if (result != -1) { // requires canonicalization (assert(result != -1))
-                return result
-            }
-            path[pathIndex].moveToNextNode()
+            return moveToNextNodeWithData(pathIndex + 1)
         }
         return -1
     }
 
     private fun ensureNextEntryIsReady() {
-        if (path[pathLastIndex].hashNextEntry()) {
+        if (path[pathLastIndex].hasNextEntry()) {
             return
         }
         for(i in pathLastIndex downTo 0) {
             var result = moveToNextNodeWithData(i)
-            if (result == -1 && path[i].hashNextNode()) { // requires canonicalization (if)
+
+            if (result == -1 && path[i].hasNextNode()) {
                 path[i].moveToNextNode()
                 result = moveToNextNodeWithData(i)
             }
-            if (result != -1) { // requires canonicalization (assert(result != -1))
+            if (result != -1) {
                 pathLastIndex = result
                 return
             }
@@ -91,39 +88,39 @@ internal class TrieNodeIterator<out K, out V> {
         this.index = 0
     }
 
-    fun hashNextEntry(): Boolean {
+    fun hasNextEntry(): Boolean {
         return index < dataSize
     }
 
     fun nextKey(): K {
-        assert(hashNextEntry())
+        assert(hasNextEntry())
         index += 2
         return buffer[index - 2] as K
     }
 
     fun nextValue(): V {
-        assert(hashNextEntry())
+        assert(hasNextEntry())
         index += 2
         return buffer[index - 1] as V
     }
 
     fun nextEntry(): Map.Entry<K, V> {
-        assert(hashNextEntry())
+        assert(hasNextEntry())
         index += 2
         return MapEntry(buffer[index - 2] as K, buffer[index - 1] as V)
     }
 
     fun currentNode(): TrieNode<out K, out V> {
-        assert(hashNextNode())
+        assert(hasNextNode())
         return buffer[index] as TrieNode<K, V>
     }
 
-    fun hashNextNode(): Boolean {
+    fun hasNextNode(): Boolean {
         return index < buffer.size
     }
 
     fun moveToNextNode() {
-        assert(hashNextNode())
+        assert(hasNextNode())
         index++
     }
 }

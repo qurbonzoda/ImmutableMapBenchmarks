@@ -173,7 +173,7 @@ class PersistentHashMapBuilderTest {
 
     @Test
     fun collisionTests() {
-        var builder = persistentHashMapOf<KeyWrapper<Int>, Int>().builder()
+        val builder = persistentHashMapOf<KeyWrapper<Int>, Int>().builder()
 
         repeat(times = 2) { removeEntryPredicate ->
             val keyGen = KeyGenerator<Int>(20000)
@@ -245,8 +245,8 @@ class PersistentHashMapBuilderTest {
                 val builder = builders[index]
 
                 val operationType = random.nextDouble()
-                val hashCodeIndexIndex = random.nextInt(hashCodes.size)
-                val key = KeyWrapper(random.nextInt(), hashCodes[hashCodeIndexIndex])
+                val hashCodeIndex = random.nextInt(hashCodes.size)
+                val key = KeyWrapper(random.nextInt(), hashCodes[hashCodeIndex])
 
                 val shouldRemove = operationType < 0.2
                 val shouldRemoveEntry = !shouldRemove && operationType < 0.4

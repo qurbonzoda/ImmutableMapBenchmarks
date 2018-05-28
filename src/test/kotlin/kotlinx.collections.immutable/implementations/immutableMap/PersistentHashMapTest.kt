@@ -298,8 +298,8 @@ class PersistentHashMapTest {
                 val key = if (random.nextDouble() < 0.001) {
                     null
                 } else {
-                    val hashCodeIndexIndex = random.nextInt(hashCodes.size)
-                    KeyWrapper(random.nextInt(), hashCodes[hashCodeIndexIndex])
+                    val hashCodeIndex = random.nextInt(hashCodes.size)
+                    KeyWrapper(random.nextInt(), hashCodes[hashCodeIndex])
                 }
 
                 val operationType = random.nextDouble()
